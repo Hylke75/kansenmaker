@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Mail, KeyRound, ArrowLeft, LogIn } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/env";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,17 +37,23 @@ export function LoginScreen({ next, linkError }: { next: string; linkError: bool
     if (!value) return fail("Vul je e-mailadres in.");
     if (!EMAIL_RE.test(value)) return fail("Dit e-mailadres lijkt niet te kloppen, bijvoorbeeld naam@organisatie.nl.");
     setBusy(true);
-    const redirect = new URL("/auth/callback", window.location.origin);
-    if (next !== "/") redirect.searchParams.set("next", next);
-    const { error } = await getSupabase().auth.signInWithOtp({
-      email: value,
-      options: { emailRedirectTo: redirect.toString(), shouldCreateUser: true },
-    });
+    // Inlogmail via de Edge Function `inloglink` (Resend), zie supabase/functions/inloglink.
+    let status = 0;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/inloglink`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY },
+        body: JSON.stringify({ email: value, next }),
+      });
+      status = res.status;
+    } catch {
+      status = 0;
+    }
     setBusy(false);
-    if (error) {
+    if (status !== 200) {
       return fail(
-        error.status === 429
-          ? "Er zijn te veel inlogverzoeken verstuurd. Wacht een paar minuten en probeer het opnieuw."
+        status === 429
+          ? "Je hebt net al een inloglink gekregen. Wacht een minuut en probeer het opnieuw, of gebruik de link uit de vorige e-mail."
           : "De inloglink kon niet worden verstuurd. Probeer het later opnieuw.",
       );
     }

@@ -506,7 +506,12 @@ AI-functies (fase 2/3 van het functioneel ontwerp).
 - Nieuwe projecten: alleen door iemand die al ergens beheerder is (de eerste beheerder komt via een uitnodiging).
 
 ### 15.4 Inloggen
-- `/inloggen`: e-mailadres → Supabase stuurt een inloglink. Na het klikken landt de link op `/auth/callback`, die de
+- `/inloggen`: e-mailadres → de Edge Function `inloglink` (supabase/functions/inloglink) maakt met de admin-API een
+  inloglink + code aan en verstuurt een Nederlandse e-mail via **Resend** (afzender kansenmaker@linkandlead.nl).
+  De link gaat naar `<site>/auth/confirm?token_hash=…`, dus de Site URL in Supabase speelt geen rol. Rate limit:
+  1 mail per minuut en 5 per uur per adres (tabel `login_mail_log`). De Resend-sleutel staat in Supabase Vault
+  (`resend_api_key`, uit te lezen via RPC `resend_api_key()`, alleen service-rol) of als secret `RESEND_API_KEY`.
+- (Oud) Supabase stuurde zelf een inloglink. Na het klikken landt de link op `/auth/callback`, die de
   sessie in een cookie zet en doorstuurt naar de oorspronkelijke pagina (`next`, alleen interne paden).
 - Wie de mail op een ander apparaat leest, kan de **code** uit de mail invullen (vereist dat het e-mailsjabloon de code
   toont, zie 15.5).
