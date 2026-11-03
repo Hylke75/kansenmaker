@@ -1,0 +1,147 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * DE KANSENMAKER — design tokens
+ * LET OP: kleurwaarden zijn een ontwerpvoorstel (voorlopige tokens), géén
+ * geverifieerde officiële huisstijlwaarden van Haags Verhaal. Zie docs/design-spec.md §3.
+ */
+:root {
+  /* Merk (voorlopig) */
+  --km-green: #103e30; /* Donkergroen: titels, navigatie, iconen */
+  --km-green-hover: #1b5443;
+  --km-yellow: #e8a638; /* Warm geel: primaire knoppen en accenten (nooit als tekstkleur) */
+  --km-yellow-hover: #d9952a;
+  --km-offwhite: #faf8f3; /* Gebroken wit: pagina-achtergrond */
+  --km-softgreen: #e5ebe1; /* Zachtgroen: kaarten en actieve onderdelen */
+  --km-white: #ffffff; /* Wit: formulieren en inhoud */
+  --km-text: #303b34; /* Donkergrijs: lopende tekst */
+  --km-muted: #5a6660; /* Secundaire tekst (≥4.5:1 op alle achtergronden) */
+  --km-line: #d6dcd2; /* Lijnen en randen */
+  --km-line-strong: #8a968e; /* Randen van invoervelden (≥3:1) */
+  --km-danger: #b3261e;
+  --km-danger-soft: #fbeae8;
+  --km-warning-soft: #fdf1da;
+  --km-warning-text: #6b4a00;
+
+  /* shadcn-koppeling */
+  --background: var(--km-offwhite);
+  --foreground: var(--km-text);
+  --card: var(--km-white);
+  --card-foreground: var(--km-text);
+  --popover: var(--km-white);
+  --popover-foreground: var(--km-text);
+  --primary: var(--km-green);
+  --primary-foreground: #ffffff;
+  --secondary: var(--km-softgreen);
+  --secondary-foreground: var(--km-green);
+  --muted: #f1efe8;
+  --muted-foreground: var(--km-muted);
+  --accent: var(--km-softgreen);
+  --accent-foreground: var(--km-green);
+  --destructive: var(--km-danger);
+  --border: var(--km-line);
+  --input: var(--km-line-strong);
+  --ring: var(--km-green);
+  --radius: 0.75rem; /* 12px */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-km-green: var(--km-green);
+  --color-km-green-hover: var(--km-green-hover);
+  --color-km-yellow: var(--km-yellow);
+  --color-km-yellow-hover: var(--km-yellow-hover);
+  --color-km-offwhite: var(--km-offwhite);
+  --color-km-softgreen: var(--km-softgreen);
+  --color-km-text: var(--km-text);
+  --color-km-muted: var(--km-muted);
+  --color-km-line: var(--km-line);
+  --color-km-danger: var(--km-danger);
+  --color-km-danger-soft: var(--km-danger-soft);
+  --color-km-warning-soft: var(--km-warning-soft);
+  --color-km-warning-text: var(--km-warning-text);
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-xl: 1rem; /* 16px */
+  --radius-2xl: 1.25rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 1rem; /* minimaal 16px lopende tekst */
+    line-height: 1.6;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading text-km-green;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+  :focus-visible {
+    outline: 3px solid var(--km-green);
+    outline-offset: 2px;
+  }
+  [data-focus-ring-inverse]:focus-visible {
+    outline-color: #ffffff;
+  }
+}
+
+/* Respecteer verminderde-beweginginstellingen */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Printvriendelijk overzicht */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
