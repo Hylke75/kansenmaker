@@ -1,18 +1,20 @@
 "use client";
 
 /**
- * Prototype-opslag in het geheugen van de browser.
+ * Gegevenslaag van De Kansenmaker, gekoppeld aan Supabase.
  *
- * BELANGRIJK: dit is géén database. Alle wijzigingen bestaan alleen in dit
- * browservenster en verdwijnen bij herladen. Meldingen in de interface zeggen
- * dat ook expliciet. In stap 2 wordt deze laag vervangen door Supabase.
- *
- * Sessiegegevens worden via BroadcastChannel gedeeld tussen tabbladen in
- * dezelfde browser, zodat het begeleidersscherm en de sessieruimte samen te
- * demonstreren zijn. Dat is geen echte live-verbinding.
+ * - Alle lees- en schrijfacties lopen via de browserclient; Row Level Security in de
+ *   database bepaalt wat iemand mag zien en wijzigen (zie supabase/migrations).
+ * - Na een wijziging worden de gegevens van het actieve project opnieuw geladen.
+ * - Werksessies (sessies, antwoorden, stemmen) worden live bijgewerkt via Supabase Realtime.
+ * - Fouten worden als melding getoond; succes meldt het scherm zelf (zie notify.after).
  */
 import * as React from "react";
-import * as data from "./sample-data";
+import type { PostgrestError } from "@supabase/supabase-js";
+import { getSupabase } from "./supabase/client";
+import type { Json, Row } from "./database.types";
+import { can, type Permission } from "./permissions";
+import { notify } from "@/components/km/toast";
 import type {
   ActionItem,
   Activity,
@@ -21,27 +23,106 @@ import type {
   Concept,
   Contribution,
   ContributionKind,
+  Feasibility,
   Idea,
   Invitation,
   Membership,
   Need,
   Project,
   ProjectSettings,
-  RiskItem,
   ResearchItem,
+  RiskItem,
   Role,
   Session,
   SessionAnswer,
+  Status,
   User,
 } from "./types";
-import { can, type Permission } from "./permissions";
 
-interface State {
-  currentUserId: string;
-  currentProjectId: string | null;
-  users: User[];
-  projects: Project[];
-  memberships: Membership[];
+/* ------------------------------------------------------------------ */
+/* Omzetten van databaserijen naar de typen van de interface           */
+/* ------------------------------------------------------------------ */
+
+const toUser = (r: Row<"profiles">): User => ({
+  id: r.id,
+  name: r.full_name.trim() || r.email.split("@")[0],
+  nameMissing: !r.full_name.trim() || undefined,
+  email: r.email,
+  organisation: r.organisation || undefined,
+});
+
+const toProject = (r: Row<"projects">): Project => ({
+  id: r.id,
+  name: r.name,
+  description: r.description,
+  ownerId: r.owner_id ?? "",
+  visibility: r.visibility as Project["visibility"],
+  archived: r.archived,
+  settings: {
+    inviteOnly: r.invite_only,
+    ideasVisibleImmediately: r.ideas_visible_immediately,
+    allowComments: r.allow_comments,
+    allowVoting: r.allow_voting,
+    requireApproval: r.require_approval,
+  },
+});
+
+const FEASIBILITY_COLUMNS: Record<keyof Feasibility, keyof Row<"concepts">> = {
+  people: "feasibility_people",
+  resources: "feasibility_resources",
+  partners: "feasibility_partners",
+  mission: "feasibility_mission",
+  missingKnowledge: "feasibility_missing_knowledge",
+};
+
+/* ------------------------------------------------------------------ */
+/* Foutafhandeling                                                     */
+/* ------------------------------------------------------------------ */
+
+class NoRowsError extends Error {}
+
+/** Begrijpelijke Nederlandse foutmelding. Meldingen uit de database zijn al in het Nederlands. */
+function friendly(err: unknown): string {
+  if (err instanceof NoRowsError) return "Je hebt geen rechten om dit te wijzigen, of het onderdeel bestaat niet meer.";
+  const e = err as Partial<PostgrestError> & { message?: string };
+  const msg = e?.message ?? "";
+  if (e?.code === "42501") {
+    // Eigen meldingen uit triggers zijn Nederlands; de standaard RLS-melding niet
+    return /row-level security/i.test(msg) ? "Je hebt geen rechten om dit te doen." : msg;
+  }
+  if (e?.code === "23505") return "Dit bestaat al.";
+  if (e?.code === "23514" || e?.code === "P0001" || e?.code === "23503" || e?.code === "P0002") {
+    return /violates|constraint/i.test(msg) ? "De invoer voldoet niet aan de eisen. Controleer de velden." : msg;
+  }
+  if (/fetch|network|Failed to fetch/i.test(msg)) return "Geen verbinding met de server. Controleer je internetverbinding en probeer het opnieuw.";
+  return msg || "Er ging iets mis. Probeer het opnieuw.";
+}
+
+/** Gooit bij een fout; bij updates/deletes ook als er geen rij is geraakt (RLS). */
+async function must<R extends { data: unknown; error: PostgrestError | null }>(
+  p: PromiseLike<R>,
+  opts?: { rows?: boolean },
+): Promise<NonNullable<R["data"]>> {
+  const { data, error } = await p;
+  if (error) throw error;
+  if (opts?.rows && Array.isArray(data) && data.length === 0) throw new NoRowsError();
+  // Bij insert zonder select is data null; die waarde wordt dan niet gebruikt.
+  return data as NonNullable<R["data"]>;
+}
+
+/** Zoals must, maar een ontbrekende rij (maybeSingle) is geen fout. */
+async function mustMaybe<T>(p: PromiseLike<{ data: T | null; error: PostgrestError | null }>): Promise<T | null> {
+  const { data, error } = await p;
+  if (error) throw error;
+  return data;
+}
+
+/* ------------------------------------------------------------------ */
+/* State                                                               */
+/* ------------------------------------------------------------------ */
+
+interface ProjectData {
+  members: Membership[];
   audiences: Audience[];
   needs: Need[];
   ideas: Idea[];
@@ -54,26 +135,57 @@ interface State {
   activities: Activity[];
 }
 
-const initialState: State = {
-  currentUserId: "u1",
-  currentProjectId: "p1",
-  users: data.users,
-  projects: data.projects,
-  memberships: data.memberships,
-  audiences: data.audiences,
-  needs: data.needs,
-  ideas: data.ideas,
-  contributions: data.contributions,
-  concepts: data.concepts,
-  actions: data.actions,
-  sessions: data.sessions,
-  sessionAnswers: data.sessionAnswers,
-  invitations: data.invitations,
-  activities: data.activities,
+const EMPTY: ProjectData = {
+  members: [],
+  audiences: [],
+  needs: [],
+  ideas: [],
+  contributions: [],
+  concepts: [],
+  actions: [],
+  sessions: [],
+  sessionAnswers: [],
+  invitations: [],
+  activities: [],
 };
 
-let idCounter = 0;
-export const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
+interface State extends ProjectData {
+  status: "loading" | "ready" | "signed-out" | "error";
+  userId: string | null;
+  profiles: User[];
+  myMemberships: Membership[];
+  projects: Project[];
+  currentProjectId: string | null;
+  /** Project waarvan de gegevens geladen zijn (voorkomt lege toestanden tijdens laden) */
+  loadedProjectId: string | null;
+}
+
+const INITIAL: State = {
+  ...EMPTY,
+  status: "loading",
+  userId: null,
+  profiles: [],
+  myMemberships: [],
+  projects: [],
+  currentProjectId: null,
+  loadedProjectId: null,
+};
+
+const PROJECT_KEY = "kansenmaker:project";
+const readStoredProject = () => {
+  try {
+    return localStorage.getItem(PROJECT_KEY);
+  } catch {
+    return null;
+  }
+};
+const storeProject = (id: string) => {
+  try {
+    localStorage.setItem(PROJECT_KEY, id);
+  } catch {
+    /* privémodus: niet erg */
+  }
+};
 
 export interface NewIdeaInput {
   title: string;
@@ -83,328 +195,683 @@ export interface NewIdeaInput {
   needIds: string[];
 }
 
+/* ------------------------------------------------------------------ */
+/* Laden                                                               */
+/* ------------------------------------------------------------------ */
+
+async function fetchSessions(pid: string) {
+  const db = getSupabase();
+  const [sessions, participants, answers, votes] = await Promise.all([
+    must(db.from("sessions").select("*").eq("project_id", pid).order("starts_at")),
+    must(db.from("session_participants").select("*").eq("project_id", pid)),
+    must(db.from("session_answers").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("session_votes").select("*").eq("project_id", pid)),
+  ]);
+  return {
+    sessions: sessions.map(
+      (s): Session => ({
+        id: s.id,
+        projectId: s.project_id,
+        title: s.title,
+        date: s.starts_at,
+        facilitatorId: s.facilitator_id ?? "",
+        state: s.state as Session["state"],
+        activeRound: s.active_round,
+        participantIds: participants.filter((p) => p.session_id === s.id).map((p) => p.user_id),
+        location: s.location,
+      }),
+    ),
+    sessionAnswers: answers.map(
+      (a): SessionAnswer => ({
+        id: a.id,
+        sessionId: a.session_id,
+        round: a.round,
+        authorId: a.author_id ?? "",
+        text: a.text,
+        hidden: a.hidden,
+        votes: votes.filter((v) => v.answer_id === a.id).map((v) => v.user_id),
+      }),
+    ),
+  };
+}
+
+async function fetchProject(pid: string): Promise<ProjectData & { profiles: User[] }> {
+  const db = getSupabase();
+  const [
+    members,
+    audiences,
+    needs,
+    ideas,
+    ideaAudiences,
+    ideaNeeds,
+    ideaRelations,
+    contributions,
+    concepts,
+    conceptIdeas,
+    conceptAudiences,
+    conceptNeeds,
+    risks,
+    research,
+    actions,
+    invitations,
+    activities,
+    sessionData,
+  ] = await Promise.all([
+    must(db.from("project_members").select("*").eq("project_id", pid)),
+    must(db.from("audiences").select("*").eq("project_id", pid).order("name")),
+    must(db.from("needs").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("ideas").select("*").eq("project_id", pid).order("created_at", { ascending: false })),
+    must(db.from("idea_audiences").select("*")),
+    must(db.from("idea_needs").select("*")),
+    must(db.from("idea_relations").select("*")),
+    must(db.from("contributions").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("concepts").select("*").eq("project_id", pid).order("created_at", { ascending: false })),
+    must(db.from("concept_ideas").select("*")),
+    must(db.from("concept_audiences").select("*")),
+    must(db.from("concept_needs").select("*")),
+    must(db.from("risks").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("research_items").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("actions").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("invitations").select("*").eq("project_id", pid).order("created_at", { ascending: false })),
+    must(db.from("activities").select("*").eq("project_id", pid).order("created_at", { ascending: false }).limit(50)),
+    fetchSessions(pid),
+  ]);
+
+  const memberIds = members.map((m) => m.user_id);
+  const profiles = memberIds.length
+    ? (await must(db.from("profiles").select("*").in("id", memberIds))).map(toUser)
+    : [];
+
+  const ideaIds = new Set(ideas.map((i) => i.id));
+
+  return {
+    profiles,
+    members: members.map((m) => ({ userId: m.user_id, projectId: m.project_id, role: m.role as Role })),
+    audiences: audiences.map((a) => ({ id: a.id, projectId: a.project_id, name: a.name, description: a.description, category: a.category })),
+    needs: needs.map((n) => ({ id: n.id, audienceId: n.audience_id, description: n.description })),
+    ideas: ideas.map(
+      (i): Idea => ({
+        id: i.id,
+        projectId: i.project_id,
+        title: i.title,
+        description: i.description,
+        problem: i.problem ?? undefined,
+        authorId: i.author_id ?? "",
+        audienceIds: ideaAudiences.filter((x) => x.idea_id === i.id).map((x) => x.audience_id),
+        needIds: ideaNeeds.filter((x) => x.idea_id === i.id).map((x) => x.need_id),
+        status: i.status as Status,
+        createdAt: i.created_at,
+        archived: i.archived || undefined,
+        pending: i.pending || undefined,
+        relatedIdeaIds: ideaRelations
+          .filter((x) => x.idea_id === i.id || x.related_idea_id === i.id)
+          .map((x) => (x.idea_id === i.id ? x.related_idea_id : x.idea_id))
+          .filter((x) => ideaIds.has(x)),
+      }),
+    ),
+    contributions: contributions.map((c) => ({
+      id: c.id,
+      ideaId: c.idea_id,
+      authorId: c.author_id ?? "",
+      kind: c.kind as ContributionKind,
+      text: c.text,
+      createdAt: c.created_at,
+      hidden: c.hidden || undefined,
+      pending: c.pending || undefined,
+    })),
+    concepts: concepts.map(
+      (c): Concept => ({
+        id: c.id,
+        projectId: c.project_id,
+        name: c.name,
+        description: c.description,
+        status: c.status as Status,
+        ownerId: c.owner_id ?? "",
+        ideaIds: conceptIdeas.filter((x) => x.concept_id === c.id && ideaIds.has(x.idea_id)).map((x) => x.idea_id),
+        audienceIds: conceptAudiences.filter((x) => x.concept_id === c.id).map((x) => x.audience_id),
+        needIds: conceptNeeds.filter((x) => x.concept_id === c.id).map((x) => x.need_id),
+        distinctiveness: c.distinctiveness,
+        missionContribution: c.mission_contribution,
+        risks: risks.filter((r) => r.concept_id === c.id).map((r) => ({ id: r.id, kind: r.kind as RiskItem["kind"], text: r.text })),
+        feasibility: {
+          people: c.feasibility_people,
+          resources: c.feasibility_resources,
+          partners: c.feasibility_partners,
+          mission: c.feasibility_mission,
+          missingKnowledge: c.feasibility_missing_knowledge,
+        },
+        research: research
+          .filter((r) => r.concept_id === c.id)
+          .map((r) => ({
+            id: r.id,
+            assumption: r.assumption,
+            method: r.method,
+            status: r.status as ResearchItem["status"],
+            result: r.result ?? undefined,
+          })),
+        assessment: (c.assessment ?? {}) as Record<string, AssessmentValue | undefined>,
+        readyConfirmedBy: c.ready_confirmed_by ?? undefined,
+      }),
+    ),
+    actions: actions.map((a) => ({
+      id: a.id,
+      description: a.description,
+      ownerId: a.owner_id ?? "",
+      deadline: a.deadline ?? undefined,
+      status: a.status as ActionItem["status"],
+      conceptId: a.concept_id ?? undefined,
+      sessionId: a.session_id ?? undefined,
+    })),
+    invitations: invitations.map((i) => ({
+      id: i.id,
+      projectId: i.project_id,
+      token: i.token,
+      email: i.email ?? undefined,
+      role: i.role as Role,
+      kind: i.kind as Invitation["kind"],
+      expiresAt: i.expires_at.slice(0, 10),
+      revoked: i.revoked,
+      sessionId: i.session_id ?? undefined,
+      createdBy: i.created_by ?? undefined,
+      acceptedAt: i.accepted_at ?? undefined,
+    })),
+    activities: activities.map((a) => ({ id: a.id, projectId: a.project_id, text: a.text, href: a.href, at: a.created_at })),
+    ...sessionData,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Store                                                               */
+/* ------------------------------------------------------------------ */
+
 function useStoreValue() {
-  const [state, setState] = React.useState<State>(initialState);
-
-  const currentUser = state.users.find((u) => u.id === state.currentUserId)!;
-  const myProjects = state.projects.filter((p) =>
-    state.memberships.some((m) => m.userId === state.currentUserId && m.projectId === p.id),
-  );
-  const project = myProjects.find((p) => p.id === state.currentProjectId) ?? null;
-  const role: Role | undefined = project
-    ? state.memberships.find((m) => m.userId === state.currentUserId && m.projectId === project.id)?.role
-    : undefined;
-
-  const userName = React.useCallback(
-    (id: string) => state.users.find((u) => u.id === id)?.name ?? "Onbekende gebruiker",
-    [state.users],
-  );
-
-  const log = (s: State, text: string, href: string): Activity[] =>
-    s.currentProjectId
-      ? [{ id: newId("ac"), projectId: s.currentProjectId, text, href, at: new Date().toISOString() }, ...s.activities]
-      : s.activities;
-
-  /* ---------- Broadcast voor sessies (alleen tussen tabbladen) ---------- */
-  const channelRef = React.useRef<BroadcastChannel | null>(null);
-  const remoteUpdate = React.useRef(false);
+  const [state, setState] = React.useState<State>(INITIAL);
+  const stateRef = React.useRef(state);
   React.useEffect(() => {
-    if (typeof BroadcastChannel === "undefined") return;
-    const ch = new BroadcastChannel("kansenmaker-prototype-sessies");
-    channelRef.current = ch;
-    ch.onmessage = (e: MessageEvent<{ sessions: Session[]; sessionAnswers: SessionAnswer[] }>) => {
-      remoteUpdate.current = true;
-      setState((s) => ({ ...s, sessions: e.data.sessions, sessionAnswers: e.data.sessionAnswers }));
-    };
-    return () => ch.close();
+    stateRef.current = state;
+  }, [state]);
+
+  const db = getSupabase();
+
+  /** Mijn profiel, lidmaatschappen en projecten laden en een project kiezen. */
+  const loadMe = React.useCallback(
+    async (preferProject?: string | null) => {
+      const { data: auth } = await db.auth.getUser();
+      const uid = auth.user?.id ?? null;
+      if (!uid) {
+        setState({ ...INITIAL, status: "signed-out" });
+        return;
+      }
+      try {
+        const [profile, memberships, projects] = await Promise.all([
+          mustMaybe(db.from("profiles").select("*").eq("id", uid).maybeSingle()),
+          must(db.from("project_members").select("*").eq("user_id", uid)),
+          must(db.from("projects").select("*").order("created_at")),
+        ]);
+        const my = memberships.map((m) => ({ userId: m.user_id, projectId: m.project_id, role: m.role as Role }));
+        const projs = projects.map(toProject);
+        const stored = preferProject ?? stateRef.current.currentProjectId ?? readStoredProject();
+        const current =
+          projs.find((p) => p.id === stored && my.some((m) => m.projectId === p.id)) ??
+          projs.find((p) => !p.archived && my.some((m) => m.projectId === p.id)) ??
+          null;
+        setState((s) => ({
+          ...s,
+          status: "ready",
+          userId: uid,
+          profiles: profile ? mergeProfiles(s.profiles, [toUser(profile)]) : s.profiles,
+          myMemberships: my,
+          projects: projs,
+          currentProjectId: current?.id ?? null,
+        }));
+        if (current) storeProject(current.id);
+      } catch (err) {
+        setState((s) => ({ ...s, status: "error" }));
+        notify.error("Gegevens konden niet worden geladen", friendly(err));
+      }
+    },
+    [db],
+  );
+
+  const loadProject = React.useCallback(
+    async (pid: string | null) => {
+      if (!pid) return; // setProject/loadMe zetten de lege toestand al
+      try {
+        const data = await fetchProject(pid);
+        setState((s) =>
+          s.currentProjectId === pid
+            ? { ...s, ...data, profiles: mergeProfiles(s.profiles, data.profiles), loadedProjectId: pid }
+            : s,
+        );
+      } catch (err) {
+        notify.error("Projectgegevens konden niet worden geladen", friendly(err));
+      }
+    },
+    [],
+  );
+
+  const reloadSessions = React.useCallback(async () => {
+    const pid = stateRef.current.currentProjectId;
+    if (!pid) return;
+    try {
+      const data = await fetchSessions(pid);
+      setState((s) => (s.currentProjectId === pid ? { ...s, ...data } : s));
+    } catch {
+      /* stil: volgende update probeert opnieuw */
+    }
   }, []);
-  const firstRender = React.useRef(true);
+
+  // Start + reageren op in-/uitloggen
   React.useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
+    // Ophalen uit Supabase (extern systeem); setState gebeurt pas na een await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadMe();
+    const { data } = db.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") setState({ ...INITIAL, status: "signed-out" });
+      if (event === "SIGNED_IN" && !stateRef.current.userId) void loadMe();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [db, loadMe]);
+
+  // Project laden bij wissel
+  React.useEffect(() => {
+    // Ophalen uit Supabase (extern systeem); setState gebeurt pas na een await.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (state.status === "ready") void loadProject(state.currentProjectId);
+  }, [state.status, state.currentProjectId, loadProject]);
+
+  // Live werksessies
+  React.useEffect(() => {
+    const pid = state.currentProjectId;
+    if (!pid || state.status !== "ready") return;
+    let timer: number | undefined;
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void reloadSessions(), 150);
+    };
+    const channel = db
+      .channel(`sessies-${pid}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `project_id=eq.${pid}` }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "session_answers", filter: `project_id=eq.${pid}` }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "session_votes", filter: `project_id=eq.${pid}` }, schedule)
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      void db.removeChannel(channel);
+    };
+  }, [db, state.currentProjectId, state.status, reloadSessions]);
+
+  /* ---------------- afgeleide waarden ---------------- */
+  const currentUser: User =
+    state.profiles.find((u) => u.id === state.userId) ?? { id: state.userId ?? "", name: "", email: "" };
+  const myProjects = state.projects.filter((p) => state.myMemberships.some((m) => m.projectId === p.id));
+  const project = myProjects.find((p) => p.id === state.currentProjectId) ?? null;
+  const role: Role | undefined = state.myMemberships.find((m) => m.projectId === project?.id)?.role;
+  const userName = React.useCallback(
+    (id: string) => state.profiles.find((u) => u.id === id)?.name ?? "Onbekende gebruiker",
+    [state.profiles],
+  );
+  const allowed = (permission: Permission) => can(role, permission);
+  const projectReady = !project || state.loadedProjectId === project.id;
+
+  /** Voert een wijziging uit, toont fouten en herlaadt het project. */
+  const run = async <T,>(fn: () => Promise<T>, opts: { reload?: "project" | "sessions" | "me" | "none" } = {}): Promise<T | null> => {
+    try {
+      const result = await fn();
+      const reload = opts.reload ?? "project";
+      if (reload === "project") await loadProject(stateRef.current.currentProjectId);
+      if (reload === "sessions") await reloadSessions();
+      if (reload === "me") await loadMe();
+      return result;
+    } catch (err) {
+      notify.error("Dat is niet gelukt", friendly(err));
+      return null;
     }
-    if (remoteUpdate.current) {
-      remoteUpdate.current = false;
-      return;
-    }
-    channelRef.current?.postMessage({ sessions: state.sessions, sessionAnswers: state.sessionAnswers });
-  }, [state.sessions, state.sessionAnswers]);
-
-  const actions = {
-    /* Prototype */
-    setCurrentUser: (userId: string) =>
-      setState((s) => {
-        const first = s.memberships.find((m) => m.userId === userId && !s.projects.find((p) => p.id === m.projectId)?.archived);
-        return { ...s, currentUserId: userId, currentProjectId: first?.projectId ?? null };
-      }),
-    setProject: (projectId: string) => setState((s) => ({ ...s, currentProjectId: projectId })),
-
-    /* Ideeën */
-    addIdea: (input: NewIdeaInput): string => {
-      const id = newId("idee");
-      setState((s) => {
-        if (!s.currentProjectId) return s;
-        const p = s.projects.find((x) => x.id === s.currentProjectId);
-        const idea: Idea = {
-          id,
-          projectId: s.currentProjectId,
-          title: input.title.trim(),
-          description: input.description.trim(),
-          problem: input.problem?.trim() || undefined,
-          audienceIds: input.audienceIds,
-          needIds: input.needIds,
-          authorId: s.currentUserId,
-          status: "nieuw",
-          createdAt: new Date().toISOString(),
-          relatedIdeaIds: [],
-          pending: p?.settings.requireApproval || undefined,
-        };
-        return { ...s, ideas: [idea, ...s.ideas], activities: log(s, `Jij deelde het idee ‘${idea.title}’`, `/ideeen/${id}`) };
-      });
-      return id;
-    },
-    updateIdea: (id: string, patch: Partial<Idea>) =>
-      setState((s) => ({ ...s, ideas: s.ideas.map((i) => (i.id === id ? { ...i, ...patch } : i)) })),
-    addContribution: (ideaId: string, kind: ContributionKind, text: string) =>
-      setState((s) => {
-        const p = s.projects.find((x) => x.id === s.currentProjectId);
-        const c: Contribution = {
-          id: newId("bijdrage"),
-          ideaId,
-          authorId: s.currentUserId,
-          kind,
-          text: text.trim(),
-          createdAt: new Date().toISOString(),
-          pending: p?.settings.requireApproval || undefined,
-        };
-        const title = s.ideas.find((i) => i.id === ideaId)?.title ?? "";
-        return {
-          ...s,
-          contributions: [...s.contributions, c],
-          activities: log(s, `Jij gaf een ${kind} op ‘${title}’`, `/ideeen/${ideaId}`),
-        };
-      }),
-    updateContribution: (id: string, patch: Partial<Contribution>) =>
-      setState((s) => ({ ...s, contributions: s.contributions.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
-
-    /* Doelgroepen en behoeften */
-    addAudience: (input: Pick<Audience, "name" | "description" | "category">): string => {
-      const id = newId("doelgroep");
-      setState((s) =>
-        s.currentProjectId
-          ? { ...s, audiences: [...s.audiences, { ...input, id, projectId: s.currentProjectId }] }
-          : s,
-      );
-      return id;
-    },
-    updateAudience: (id: string, patch: Partial<Audience>) =>
-      setState((s) => ({ ...s, audiences: s.audiences.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
-    mergeAudiences: (sourceId: string, targetId: string) =>
-      setState((s) => {
-        const swap = (ids: string[]) => Array.from(new Set(ids.map((x) => (x === sourceId ? targetId : x))));
-        return {
-          ...s,
-          audiences: s.audiences.filter((a) => a.id !== sourceId),
-          needs: s.needs.map((n) => (n.audienceId === sourceId ? { ...n, audienceId: targetId } : n)),
-          ideas: s.ideas.map((i) => ({ ...i, audienceIds: swap(i.audienceIds) })),
-          concepts: s.concepts.map((c) => ({ ...c, audienceIds: swap(c.audienceIds) })),
-        };
-      }),
-    addNeed: (audienceId: string, description: string) =>
-      setState((s) => ({ ...s, needs: [...s.needs, { id: newId("behoefte"), audienceId, description: description.trim() }] })),
-    removeNeed: (id: string) =>
-      setState((s) => ({
-        ...s,
-        needs: s.needs.filter((n) => n.id !== id),
-        ideas: s.ideas.map((i) => ({ ...i, needIds: i.needIds.filter((x) => x !== id) })),
-        concepts: s.concepts.map((c) => ({ ...c, needIds: c.needIds.filter((x) => x !== id) })),
-      })),
-
-    /* Concepten */
-    addConcept: (input: { name: string; description: string; ideaIds: string[] }): string => {
-      const id = newId("concept");
-      setState((s) => {
-        if (!s.currentProjectId) return s;
-        const fromIdeas = s.ideas.filter((i) => input.ideaIds.includes(i.id));
-        const concept: Concept = {
-          id,
-          projectId: s.currentProjectId,
-          name: input.name.trim(),
-          description: input.description.trim(),
-          status: "nieuw",
-          ownerId: s.currentUserId,
-          ideaIds: input.ideaIds,
-          audienceIds: Array.from(new Set(fromIdeas.flatMap((i) => i.audienceIds))),
-          needIds: Array.from(new Set(fromIdeas.flatMap((i) => i.needIds))),
-          distinctiveness: "",
-          missionContribution: "",
-          risks: [],
-          feasibility: { people: "", resources: "", partners: "", mission: "", missingKnowledge: "" },
-          research: [],
-          assessment: {},
-        };
-        return {
-          ...s,
-          concepts: [concept, ...s.concepts],
-          activities: log(s, `Jij maakte het concept ‘${concept.name}’`, `/concepten/${id}`),
-        };
-      });
-      return id;
-    },
-    updateConcept: (id: string, patch: Partial<Concept>) =>
-      setState((s) => ({ ...s, concepts: s.concepts.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
-    setAssessment: (id: string, questionId: string, value: AssessmentValue | undefined) =>
-      setState((s) => ({
-        ...s,
-        concepts: s.concepts.map((c) =>
-          c.id === id ? { ...c, assessment: { ...c.assessment, [questionId]: value } } : c,
-        ),
-      })),
-    addRisk: (conceptId: string, risk: Omit<RiskItem, "id">) =>
-      setState((s) => ({
-        ...s,
-        concepts: s.concepts.map((c) =>
-          c.id === conceptId ? { ...c, risks: [...c.risks, { ...risk, id: newId("risico") }] } : c,
-        ),
-      })),
-    removeRisk: (conceptId: string, riskId: string) =>
-      setState((s) => ({
-        ...s,
-        concepts: s.concepts.map((c) => (c.id === conceptId ? { ...c, risks: c.risks.filter((r) => r.id !== riskId) } : c)),
-      })),
-    addResearch: (conceptId: string, items: Omit<ResearchItem, "id">[]) =>
-      setState((s) => ({
-        ...s,
-        concepts: s.concepts.map((c) =>
-          c.id === conceptId
-            ? { ...c, research: [...c.research, ...items.map((r) => ({ ...r, id: newId("onderzoek") }))] }
-            : c,
-        ),
-      })),
-    updateResearch: (conceptId: string, researchId: string, patch: Partial<ResearchItem>) =>
-      setState((s) => ({
-        ...s,
-        concepts: s.concepts.map((c) =>
-          c.id === conceptId
-            ? { ...c, research: c.research.map((r) => (r.id === researchId ? { ...r, ...patch } : r)) }
-            : c,
-        ),
-      })),
-    addAction: (a: Omit<ActionItem, "id">) =>
-      setState((s) => ({ ...s, actions: [...s.actions, { ...a, id: newId("actie") }] })),
-    updateAction: (id: string, patch: Partial<ActionItem>) =>
-      setState((s) => ({ ...s, actions: s.actions.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
-
-    /* Sessies */
-    addSession: (input: Pick<Session, "title" | "date" | "location">): string => {
-      const id = newId("sessie");
-      setState((s) =>
-        s.currentProjectId
-          ? {
-              ...s,
-              sessions: [
-                ...s.sessions,
-                {
-                  ...input,
-                  id,
-                  projectId: s.currentProjectId,
-                  facilitatorId: s.currentUserId,
-                  state: "gepland",
-                  activeRound: 1,
-                  participantIds: [],
-                },
-              ],
-            }
-          : s,
-      );
-      return id;
-    },
-    updateSession: (id: string, patch: Partial<Session>) =>
-      setState((s) => ({ ...s, sessions: s.sessions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
-    addSessionAnswer: (sessionId: string, round: number, text: string) =>
-      setState((s) => ({
-        ...s,
-        sessionAnswers: [
-          ...s.sessionAnswers,
-          { id: newId("antwoord"), sessionId, round, authorId: s.currentUserId, text: text.trim(), votes: [] },
-        ],
-      })),
-    toggleAnswerHidden: (id: string) =>
-      setState((s) => ({
-        ...s,
-        sessionAnswers: s.sessionAnswers.map((a) => (a.id === id ? { ...a, hidden: !a.hidden } : a)),
-      })),
-    toggleVote: (id: string) =>
-      setState((s) => ({
-        ...s,
-        sessionAnswers: s.sessionAnswers.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                votes: a.votes.includes(s.currentUserId)
-                  ? a.votes.filter((v) => v !== s.currentUserId)
-                  : [...a.votes, s.currentUserId],
-              }
-            : a,
-        ),
-      })),
-
-    /* Beheer */
-    addProject: (input: Pick<Project, "name" | "description">): string => {
-      const id = newId("project");
-      setState((s) => ({
-        ...s,
-        projects: [
-          ...s.projects,
-          {
-            ...input,
-            id,
-            ownerId: s.currentUserId,
-            visibility: "besloten",
-            archived: false,
-            settings: {
-              inviteOnly: true,
-              ideasVisibleImmediately: true,
-              allowComments: true,
-              allowVoting: true,
-              requireApproval: false,
-            },
-          },
-        ],
-        memberships: [...s.memberships, { userId: s.currentUserId, projectId: id, role: "beheerder" }],
-      }));
-      return id;
-    },
-    updateProject: (id: string, patch: Partial<Project>) =>
-      setState((s) => ({ ...s, projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
-    updateSettings: (id: string, patch: Partial<ProjectSettings>) =>
-      setState((s) => ({
-        ...s,
-        projects: s.projects.map((p) => (p.id === id ? { ...p, settings: { ...p.settings, ...patch } } : p)),
-      })),
-    setMemberRole: (userId: string, projectId: string, role: Role) =>
-      setState((s) => ({
-        ...s,
-        memberships: s.memberships.map((m) => (m.userId === userId && m.projectId === projectId ? { ...m, role } : m)),
-      })),
-    removeMember: (userId: string, projectId: string) =>
-      setState((s) => ({
-        ...s,
-        memberships: s.memberships.filter((m) => !(m.userId === userId && m.projectId === projectId)),
-      })),
-    addInvitation: (inv: Omit<Invitation, "id" | "revoked">): string => {
-      const id = newId("uitnodiging");
-      setState((s) => ({ ...s, invitations: [...s.invitations, { ...inv, id, revoked: false }] }));
-      return id;
-    },
-    revokeInvitation: (id: string) =>
-      setState((s) => ({ ...s, invitations: s.invitations.map((i) => (i.id === id ? { ...i, revoked: true } : i)) })),
+  };
+  const pid = () => {
+    const id = stateRef.current.currentProjectId;
+    if (!id) throw new Error("Kies eerst een project.");
+    return id;
   };
 
-  const allowed = (permission: Permission) => can(role, permission);
+  const actions = {
+    refresh: () => loadProject(stateRef.current.currentProjectId),
+    setProject: (projectId: string) => {
+      storeProject(projectId);
+      setState((s) => ({ ...s, ...EMPTY, currentProjectId: projectId, loadedProjectId: null }));
+    },
+    signOut: async () => {
+      await db.auth.signOut();
+    },
+    updateProfile: (patch: { name: string; organisation: string }) =>
+      run(
+        async () => {
+          await must(
+            db.from("profiles").update({ full_name: patch.name.trim(), organisation: patch.organisation.trim() }).eq("id", state.userId!).select("id"),
+            { rows: true },
+          );
+          setState((s) => ({
+            ...s,
+            profiles: s.profiles.map((u) =>
+              u.id === s.userId
+                ? { ...u, name: patch.name.trim() || u.email.split("@")[0], nameMissing: !patch.name.trim() || undefined, organisation: patch.organisation.trim() || undefined }
+                : u,
+            ),
+          }));
+          return true;
+        },
+        { reload: "none" },
+      ),
 
-  return { state, currentUser, myProjects, project, role, userName, allowed, ...actions };
+    /* Ideeën */
+    addIdea: (input: NewIdeaInput) =>
+      run(async () => {
+        const row = await must(
+          db
+            .from("ideas")
+            .insert({ project_id: pid(), title: input.title.trim(), description: input.description.trim(), problem: input.problem?.trim() || null })
+            .select("id")
+            .single(),
+        );
+        if (input.audienceIds.length)
+          await must(db.from("idea_audiences").insert(input.audienceIds.map((a) => ({ idea_id: row.id, audience_id: a }))));
+        if (input.needIds.length)
+          await must(db.from("idea_needs").insert(input.needIds.map((n) => ({ idea_id: row.id, need_id: n }))));
+        return row.id;
+      }),
+    updateIdea: (id: string, patch: Partial<Idea>) =>
+      run(async () => {
+        const u: Partial<Row<"ideas">> = {};
+        if (patch.title !== undefined) u.title = patch.title;
+        if (patch.description !== undefined) u.description = patch.description;
+        if ("problem" in patch) u.problem = patch.problem ?? null;
+        if (patch.status !== undefined) u.status = patch.status;
+        if ("archived" in patch) u.archived = !!patch.archived;
+        if ("pending" in patch) u.pending = !!patch.pending;
+        await must(db.from("ideas").update(u).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    addContribution: (ideaId: string, kind: ContributionKind, text: string) =>
+      run(async () => {
+        await must(db.from("contributions").insert({ idea_id: ideaId, kind, text: text.trim() }));
+        return true;
+      }),
+    updateContribution: (id: string, patch: Partial<Contribution>) =>
+      run(async () => {
+        const u: Partial<Row<"contributions">> = {};
+        if ("hidden" in patch) u.hidden = !!patch.hidden;
+        if ("pending" in patch) u.pending = !!patch.pending;
+        await must(db.from("contributions").update(u).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+
+    /* Doelgroepen en behoeften */
+    addAudience: (input: Pick<Audience, "name" | "description" | "category">) =>
+      run(async () => (await must(db.from("audiences").insert({ project_id: pid(), ...input }).select("id").single())).id),
+    updateAudience: (id: string, patch: Partial<Audience>) =>
+      run(async () => {
+        await must(
+          db.from("audiences").update({ name: patch.name, description: patch.description, category: patch.category }).eq("id", id).select("id"),
+          { rows: true },
+        );
+        return true;
+      }),
+    mergeAudiences: (sourceId: string, targetId: string) =>
+      run(async () => {
+        await must(db.rpc("merge_audiences", { p_source: sourceId, p_target: targetId }));
+        return true;
+      }),
+    addNeed: (audienceId: string, description: string) =>
+      run(async () => {
+        await must(db.from("needs").insert({ audience_id: audienceId, description: description.trim() }));
+        return true;
+      }),
+    removeNeed: (id: string) =>
+      run(async () => {
+        await must(db.from("needs").delete().eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+
+    /* Concepten */
+    addConcept: (input: { name: string; description: string; ideaIds: string[] }) =>
+      run(async () => {
+        const row = await must(
+          db.from("concepts").insert({ project_id: pid(), name: input.name.trim(), description: input.description.trim() }).select("id").single(),
+        );
+        const fromIdeas = stateRef.current.ideas.filter((i) => input.ideaIds.includes(i.id));
+        const audienceIds = Array.from(new Set(fromIdeas.flatMap((i) => i.audienceIds)));
+        const needIds = Array.from(new Set(fromIdeas.flatMap((i) => i.needIds)));
+        if (input.ideaIds.length) await must(db.from("concept_ideas").insert(input.ideaIds.map((i) => ({ concept_id: row.id, idea_id: i }))));
+        if (audienceIds.length) await must(db.from("concept_audiences").insert(audienceIds.map((a) => ({ concept_id: row.id, audience_id: a }))));
+        if (needIds.length) await must(db.from("concept_needs").insert(needIds.map((n) => ({ concept_id: row.id, need_id: n }))));
+        return row.id;
+      }),
+    updateConcept: (id: string, patch: Partial<Concept>) =>
+      run(async () => {
+        const u: Partial<Row<"concepts">> = {};
+        if (patch.name !== undefined) u.name = patch.name;
+        if (patch.description !== undefined) u.description = patch.description;
+        if (patch.status !== undefined) u.status = patch.status;
+        if (patch.ownerId !== undefined) u.owner_id = patch.ownerId;
+        if (patch.distinctiveness !== undefined) u.distinctiveness = patch.distinctiveness;
+        if (patch.missionContribution !== undefined) u.mission_contribution = patch.missionContribution;
+        if (patch.feasibility) {
+          for (const [k, col] of Object.entries(FEASIBILITY_COLUMNS) as [keyof Feasibility, string][]) {
+            (u as Record<string, unknown>)[col] = patch.feasibility[k];
+          }
+        }
+        await must(db.from("concepts").update(u).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    setAssessment: (id: string, questionId: string, value: AssessmentValue | undefined) =>
+      run(async () => {
+        const current = stateRef.current.concepts.find((c) => c.id === id)?.assessment ?? {};
+        const next = { ...current, [questionId]: value } as Json;
+        await must(db.from("concepts").update({ assessment: next }).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    addRisk: (conceptId: string, risk: Omit<RiskItem, "id">) =>
+      run(async () => {
+        await must(db.from("risks").insert({ concept_id: conceptId, kind: risk.kind, text: risk.text }));
+        return true;
+      }),
+    removeRisk: (_conceptId: string, riskId: string) =>
+      run(async () => {
+        await must(db.from("risks").delete().eq("id", riskId).select("id"), { rows: true });
+        return true;
+      }),
+    addResearch: (conceptId: string, items: Omit<ResearchItem, "id">[]) =>
+      run(async () => {
+        await must(
+          db.from("research_items").insert(items.map((r) => ({ concept_id: conceptId, assumption: r.assumption, method: r.method, status: r.status, result: r.result ?? null }))),
+        );
+        return true;
+      }),
+    updateResearch: (_conceptId: string, researchId: string, patch: Partial<ResearchItem>) =>
+      run(async () => {
+        const u: Partial<Row<"research_items">> = {};
+        if (patch.status) u.status = patch.status;
+        if ("result" in patch) u.result = patch.result ?? null;
+        if (patch.method !== undefined) u.method = patch.method;
+        await must(db.from("research_items").update(u).eq("id", researchId).select("id"), { rows: true });
+        return true;
+      }),
+    addAction: (a: Omit<ActionItem, "id">) =>
+      run(async () => {
+        await must(
+          db.from("actions").insert({
+            concept_id: a.conceptId ?? null,
+            session_id: a.sessionId ?? null,
+            description: a.description,
+            owner_id: a.ownerId || null,
+            deadline: a.deadline ?? null,
+            status: a.status,
+          }),
+        );
+        return true;
+      }),
+    updateAction: (id: string, patch: Partial<ActionItem>) =>
+      run(async () => {
+        await must(db.from("actions").update({ status: patch.status }).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+
+    /* Sessies */
+    addSession: (input: Pick<Session, "title" | "date" | "location">) =>
+      run(async () => (await must(db.from("sessions").insert({ project_id: pid(), title: input.title, starts_at: input.date, location: input.location }).select("id").single())).id),
+    updateSession: (id: string, patch: Partial<Session>) =>
+      run(
+        async () => {
+          const u: Partial<Row<"sessions">> = {};
+          if (patch.state) u.state = patch.state;
+          if (patch.activeRound) u.active_round = patch.activeRound;
+          await must(db.from("sessions").update(u).eq("id", id).select("id"), { rows: true });
+          return true;
+        },
+        { reload: "sessions" },
+      ),
+    joinSession: async (sessionId: string) => {
+      const { error } = await db.from("session_participants").insert({ session_id: sessionId });
+      if (!error) await reloadSessions();
+    },
+    addSessionAnswer: (sessionId: string, round: number, text: string) =>
+      run(
+        async () => {
+          await must(db.from("session_answers").insert({ session_id: sessionId, round, text: text.trim() }));
+          return true;
+        },
+        { reload: "sessions" },
+      ),
+    toggleAnswerHidden: (id: string) =>
+      run(
+        async () => {
+          const a = stateRef.current.sessionAnswers.find((x) => x.id === id);
+          await must(db.from("session_answers").update({ hidden: !a?.hidden }).eq("id", id).select("id"), { rows: true });
+          return true;
+        },
+        { reload: "sessions" },
+      ),
+    toggleVote: (answerId: string) =>
+      run(
+        async () => {
+          const uid = stateRef.current.userId!;
+          const a = stateRef.current.sessionAnswers.find((x) => x.id === answerId);
+          if (a?.votes.includes(uid)) {
+            await must(db.from("session_votes").delete().eq("answer_id", answerId).eq("user_id", uid).select("answer_id"), { rows: true });
+          } else {
+            await must(db.from("session_votes").insert({ answer_id: answerId }));
+          }
+          return true;
+        },
+        { reload: "sessions" },
+      ),
+    /** Zorgt dat het project van een sessie actief is (voor deelnamelinks). */
+    openSessionProject: async (sessionId: string): Promise<"ok" | "not-found"> => {
+      if (stateRef.current.sessions.some((s) => s.id === sessionId)) return "ok";
+      const { data } = await db.from("sessions").select("project_id").eq("id", sessionId).maybeSingle();
+      if (!data) return "not-found";
+      if (data.project_id !== stateRef.current.currentProjectId) actions.setProject(data.project_id);
+      return "ok";
+    },
+
+    /* Beheer */
+    addProject: (input: Pick<Project, "name" | "description">) =>
+      run(async () => (await must(db.rpc("create_project", { p_name: input.name, p_description: input.description }))) as string, {
+        reload: "me",
+      }),
+    updateProject: (id: string, patch: Partial<Project>) =>
+      run(
+        async () => {
+          const u: Partial<Row<"projects">> = {};
+          if (patch.name !== undefined) u.name = patch.name;
+          if (patch.description !== undefined) u.description = patch.description;
+          if ("archived" in patch) u.archived = !!patch.archived;
+          await must(db.from("projects").update(u).eq("id", id).select("id"), { rows: true });
+          return true;
+        },
+        { reload: "me" },
+      ),
+    updateSettings: (id: string, patch: Partial<ProjectSettings>) =>
+      run(
+        async () => {
+          const u: Partial<Row<"projects">> = {};
+          if (patch.inviteOnly !== undefined) u.invite_only = patch.inviteOnly;
+          if (patch.ideasVisibleImmediately !== undefined) u.ideas_visible_immediately = patch.ideasVisibleImmediately;
+          if (patch.allowComments !== undefined) u.allow_comments = patch.allowComments;
+          if (patch.allowVoting !== undefined) u.allow_voting = patch.allowVoting;
+          if (patch.requireApproval !== undefined) u.require_approval = patch.requireApproval;
+          await must(db.from("projects").update(u).eq("id", id).select("id"), { rows: true });
+          return true;
+        },
+        { reload: "me" },
+      ),
+    setMemberRole: (userId: string, projectId: string, role: Role) =>
+      run(async () => {
+        await must(db.from("project_members").update({ role }).eq("project_id", projectId).eq("user_id", userId).select("user_id"), { rows: true });
+        return true;
+      }),
+    removeMember: (userId: string, projectId: string) =>
+      run(async () => {
+        await must(db.from("project_members").delete().eq("project_id", projectId).eq("user_id", userId).select("user_id"), { rows: true });
+        return true;
+      }),
+    addInvitation: (inv: Omit<Invitation, "id" | "revoked" | "token">) =>
+      run(async () => {
+        const row = await must(
+          db
+            .from("invitations")
+            .insert({
+              project_id: inv.projectId,
+              email: inv.email ?? null,
+              role: inv.role,
+              kind: inv.kind,
+              session_id: inv.sessionId ?? null,
+              expires_at: new Date(`${inv.expiresAt}T23:59:59`).toISOString(),
+            })
+            .select("token")
+            .single(),
+        );
+        return row.token;
+      }),
+    revokeInvitation: (id: string) =>
+      run(async () => {
+        await must(db.from("invitations").update({ revoked: true }).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    acceptInvitation: (token: string) =>
+      run(
+        async () => {
+          const rows = await must(db.rpc("accept_invitation", { p_token: token }));
+          const r = rows[0];
+          storeProject(r.project_id);
+          await loadMe(r.project_id);
+          return { projectId: r.project_id, sessionId: r.session_id };
+        },
+        { reload: "none" },
+      ),
+  };
+
+  return {
+    state: {
+      ...state,
+      users: state.profiles,
+      memberships: [...state.myMemberships, ...state.members.filter((m) => m.userId !== state.userId)],
+    },
+    currentUser,
+    myProjects,
+    project,
+    role,
+    userName,
+    allowed,
+    projectReady,
+    ...actions,
+  };
+}
+
+function mergeProfiles(a: User[], b: User[]) {
+  const map = new Map(a.map((u) => [u.id, u]));
+  b.forEach((u) => map.set(u.id, u));
+  return Array.from(map.values());
 }
 
 type Store = ReturnType<typeof useStoreValue>;
@@ -421,22 +888,20 @@ export function useStore(): Store {
   return ctx;
 }
 
-/** Gegevens van het actieve project (gefilterd op projecttoegang). */
+/** Gegevens van het actieve project (al gefilterd door RLS en op project). */
 export function useProjectData() {
-  const { state, project } = useStore();
-  const pid = project?.id;
-  return React.useMemo(() => {
-    const audiences = state.audiences.filter((a) => a.projectId === pid);
-    const audienceIds = new Set(audiences.map((a) => a.id));
-    return {
-      audiences,
-      needs: state.needs.filter((n) => audienceIds.has(n.audienceId)),
-      ideas: state.ideas.filter((i) => i.projectId === pid),
-      concepts: state.concepts.filter((c) => c.projectId === pid),
-      sessions: state.sessions.filter((s) => s.projectId === pid),
-      invitations: state.invitations.filter((i) => i.projectId === pid),
-      activities: state.activities.filter((a) => a.projectId === pid),
-      members: state.memberships.filter((m) => m.projectId === pid),
-    };
-  }, [state, pid]);
+  const { state } = useStore();
+  return React.useMemo(
+    () => ({
+      audiences: state.audiences,
+      needs: state.needs,
+      ideas: state.ideas,
+      concepts: state.concepts,
+      sessions: state.sessions,
+      invitations: state.invitations,
+      activities: state.activities,
+      members: state.members,
+    }),
+    [state.audiences, state.needs, state.ideas, state.concepts, state.sessions, state.invitations, state.activities, state.members],
+  );
 }

@@ -57,20 +57,23 @@ function IdeaNewInner() {
   const dirty = title || description || audienceIds.length || problem;
   const cancel = () => (dirty ? setConfirmCancel(true) : router.push("/ideeen"));
 
-  const submit = () => {
-    const id = addIdea({
-      title,
-      description,
-      problem,
-      audienceIds,
-      needIds: needIds.filter((n) => availableNeeds.some((x) => x.id === n)),
-    });
-    notify.prototype(
-      project?.settings.requireApproval
-        ? "Je idee is toegevoegd en wacht op goedkeuring"
-        : "Je idee is toegevoegd aan de voorbeeldgegevens",
+  const [busy, setBusy] = React.useState(false);
+  const submit = async () => {
+    setBusy(true);
+    const id = await notify.after(
+      addIdea({
+        title,
+        description,
+        problem,
+        audienceIds,
+        needIds: needIds.filter((n) => availableNeeds.some((x) => x.id === n)),
+      }),
+      project?.settings.requireApproval || !project?.settings.ideasVisibleImmediately
+        ? "Je idee is gedeeld en wacht op goedkeuring"
+        : "Je idee is gedeeld",
     );
-    router.push(`/ideeen/${id}`);
+    setBusy(false);
+    if (id) router.push(`/ideeen/${id}`);
   };
 
   return (
@@ -83,6 +86,7 @@ function IdeaNewInner() {
           onSubmit={submit}
           onCancel={cancel}
           onValidationChange={setShowErrors}
+          submitting={busy}
           steps={[
             {
               title: "Wat is je idee?",
@@ -177,9 +181,6 @@ function IdeaNewInner() {
                       In dit project bekijkt een redacteur nieuwe ideeën eerst. Daarna is het voor iedereen zichtbaar.
                     </p>
                   )}
-                  <p className="text-sm text-km-muted">
-                    Prototype: je idee wordt alleen in dit browservenster toegevoegd en niet opgeslagen.
-                  </p>
                 </div>
               ),
             },

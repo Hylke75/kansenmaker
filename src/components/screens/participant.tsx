@@ -7,12 +7,12 @@ import { useStore } from "@/lib/store";
 import { Logo } from "@/components/km/logo";
 import { SessionRound, RoundProgress } from "@/components/km/session-round";
 import { EmptyState } from "@/components/km/empty-state";
-import { FormField, SampleDataNotice } from "@/components/km/form-field";
-import { PrototypeSwitcher } from "@/components/km/prototype-switcher";
+import { FormField } from "@/components/km/form-field";
+import { LoadingState } from "@/components/km/guards";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { SESSION_ROUNDS } from "@/lib/sample-data";
+import { SESSION_ROUNDS } from "@/lib/constants";
 import { answersForRound } from "./facilitator";
 import { cn } from "@/lib/utils";
 
@@ -20,38 +20,69 @@ const MAX_VOTES = 3;
 
 /**
  * Sessieruimte voor deelnemers: alleen de actieve opdracht, één invoerveld.
- * Werkt mee met het begeleiderscherm in een ander tabblad (BroadcastChannel).
+ * Volgt de begeleider live (Supabase Realtime): rondewissels verschijnen vanzelf.
  */
 export function ParticipantScreen({ id }: { id: string }) {
-  const { state, currentUser } = useStore();
+  const { state, openSessionProject, projectReady, joinSession, currentUser } = useStore();
+  const [lookup, setLookup] = React.useState<"busy" | "ok" | "not-found">("busy");
+  const ready = state.status === "ready";
+
+  React.useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    void openSessionProject(id).then((r) => active && setLookup(r));
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- alleen bij (her)laden van de sessie
+  }, [id, ready]);
+
   const session = state.sessions.find((s) => s.id === id);
-  const member = session && state.memberships.some((m) => m.userId === currentUser.id && m.projectId === session.projectId);
+  const joined = session?.participantIds.includes(currentUser.id);
+  React.useEffect(() => {
+    if (session && !joined && session.state !== "afgesloten") void joinSession(session.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eenmalig aanmelden als deelnemer
+  }, [session?.id, joined]);
+
+  const loading = state.status === "loading" || lookup === "busy" || (lookup === "ok" && (!projectReady || !session));
 
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-km-line bg-white">
         <div className="mx-auto flex min-h-16 max-w-3xl items-center justify-between gap-3 px-4">
           <Logo />
-          <div className="flex items-center gap-2">
-            <PrototypeSwitcher />
-            <Button asChild variant="ghost">
-              <Link href="/sessies">
-                <LogOut aria-hidden />
-                <span className="hidden sm:inline">Verlaten</span>
-                <span className="sr-only sm:hidden">Sessie verlaten</span>
-              </Link>
-            </Button>
-          </div>
+          <Button asChild variant="ghost">
+            <Link href={session ? `/sessies/${session.id}` : "/sessies"}>
+              <LogOut aria-hidden />
+              <span className="hidden sm:inline">Verlaten</span>
+              <span className="sr-only sm:hidden">Sessie verlaten</span>
+            </Link>
+          </Button>
         </div>
       </header>
       <main id="inhoud" tabIndex={-1} className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 outline-none md:py-12">
-        {!session || !member ? (
+        {state.status === "signed-out" ? (
+          <>
+            <h1 className="sr-only">Inloggen nodig</h1>
+            <EmptyState
+              icon={Lock}
+              title="Log in om mee te doen"
+              action={
+                <Button asChild>
+                  <Link href={`/inloggen?next=${encodeURIComponent(`/sessie/${id}`)}`}>Inloggen</Link>
+                </Button>
+              }
+            />
+          </>
+        ) : loading ? (
+          <LoadingState label="Sessie laden…" />
+        ) : !session ? (
           <>
             <h1 className="sr-only">Sessie niet beschikbaar</h1>
             <EmptyState
               icon={Lock}
               title="Deze sessie is niet beschikbaar"
-              description="De link is onjuist of je bent (nog) niet uitgenodigd voor dit project. Vraag de begeleider om een nieuwe uitnodiging."
+              description="De link is onjuist of je bent (nog) niet uitgenodigd voor dit project. Vraag de begeleider om de deelnamelink of QR-code."
             />
           </>
         ) : (
@@ -75,7 +106,6 @@ function Room({ sessionId }: { sessionId: string }) {
     <div className="mb-8">
       <p className="text-sm font-bold tracking-widest text-km-muted uppercase">Werksessie</p>
       <h1 className="mt-1 text-2xl md:text-3xl">{session.title}</h1>
-      <SampleDataNotice className="mt-3" />
     </div>
   );
 
@@ -119,14 +149,12 @@ function Room({ sessionId }: { sessionId: string }) {
   const votable = answersForRound(state.sessionAnswers, session.id, round.number).filter((a) => !a.hidden);
   const myVotes = votable.filter((a) => a.votes.includes(currentUser.id)).length;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return setError("Schrijf eerst je antwoord.");
     if (text.length > 500) return setError("Houd het kort: maximaal 500 tekens.");
     setError(undefined);
-    addSessionAnswer(session.id, round.number, text);
-    setText("");
-    notify.prototype("Verstuurd naar de begeleider");
+    if (await notify.after(addSessionAnswer(session.id, round.number, text), "Verstuurd naar de begeleider")) setText("");
   };
 
   const vote = (id: string, has: boolean) => {

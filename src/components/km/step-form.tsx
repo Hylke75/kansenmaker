@@ -21,13 +21,15 @@ interface StepFormProps {
   onCancel?: () => void;
   /** Wordt aangeroepen bij stapwissel zodat het formulier fouten kan tonen */
   onValidationChange?: (showErrors: boolean) => void;
+  /** Bezig met opslaan: verzendknop uitgeschakeld */
+  submitting?: boolean;
 }
 
 /**
  * StepForm — formulier in stappen met voortgang, validatie per stap,
  * foutoverzicht en focusbeheer (kop van de nieuwe stap krijgt focus).
  */
-export function StepForm({ heading, steps, submitLabel, onSubmit, onCancel, onValidationChange }: StepFormProps) {
+export function StepForm({ heading, steps, submitLabel, onSubmit, onCancel, onValidationChange, submitting }: StepFormProps) {
   const [index, setIndex] = React.useState(0);
   const [errors, setErrors] = React.useState<string[]>([]);
   const headingRef = React.useRef<HTMLHeadingElement>(null);
@@ -116,8 +118,8 @@ export function StepForm({ heading, steps, submitLabel, onSubmit, onCancel, onVa
             )
           )}
         </div>
-        <Button type="submit">
-          {last ? submitLabel : "Volgende"}
+        <Button type="submit" disabled={submitting}>
+          {last ? (submitting ? "Bezig met opslaan…" : submitLabel) : "Volgende"}
           {last ? <Check aria-hidden /> : <ArrowRight aria-hidden />}
         </Button>
       </div>

@@ -9,7 +9,7 @@ import { NotInProject, RequireProject } from "@/components/km/guards";
 import { StatusBadge, Tag } from "@/components/km/status-badge";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { EmptyState } from "@/components/km/empty-state";
-import { FormField, SampleDataNotice } from "@/components/km/form-field";
+import { FormField } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,14 +37,12 @@ function Inner({ id }: { id: string }) {
   const myIdeas = ideas.filter((i) => i.audienceIds.includes(audience.id) && !i.archived && !i.pending);
   const myConcepts = concepts.filter((c) => c.audienceIds.includes(audience.id));
 
-  const add = (e: React.FormEvent) => {
+  const add = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNeed.trim()) return setError("Beschrijf de behoefte.");
     if (myNeeds.some((n) => n.description.toLowerCase() === newNeed.trim().toLowerCase())) return setError("Deze behoefte staat er al.");
     setError(undefined);
-    addNeed(audience.id, newNeed);
-    setNewNeed("");
-    notify.prototype("Behoefte toegevoegd");
+    if (await notify.after(addNeed(audience.id, newNeed), "Behoefte toegevoegd")) setNewNeed("");
   };
 
   return (
@@ -56,7 +54,6 @@ function Inner({ id }: { id: string }) {
         meta={
           <>
             <Tag>{audience.category}</Tag>
-            <SampleDataNotice />
           </>
         }
         actions={
@@ -91,8 +88,7 @@ function Inner({ id }: { id: string }) {
                           confirmLabel="Verwijderen"
                           destructive
                           onConfirm={() => {
-                            removeNeed(n.id);
-                            notify.prototype("Behoefte verwijderd");
+                            void notify.after(removeNeed(n.id), "Behoefte verwijderd");
                           }}
                           trigger={
                             <Button variant="ghost" size="icon" aria-label={`Verwijder behoefte ‘${n.description}’`}>

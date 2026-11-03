@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/km/page-header";
 import { AccessDenied, RequireProject } from "@/components/km/guards";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { EmptyState } from "@/components/km/empty-state";
-import { ErrorSummary, FormField, SampleDataNotice } from "@/components/km/form-field";
+import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { STATUS_META, STATUSES, StatusBadge } from "@/components/km/status-badge";
 import { assessmentOutcome } from "@/components/km/assessment-outcome";
@@ -66,7 +66,7 @@ function Inner({ initialTab }: { initialTab?: string }) {
 
   return (
     <>
-      <PageHeader title="Beheer" description={`Project: ${project!.name}`} meta={<SampleDataNotice />} />
+      <PageHeader title="Beheer" description={`Project: ${project!.name}`} />
       <Tabs
         value={current}
         onValueChange={(v) => {
@@ -204,7 +204,7 @@ function ProjectsTab() {
                 Wijzigen
               </Button>
               {p.archived ? (
-                <Button variant="ghost" onClick={() => { updateProject(p.id, { archived: false }); notify.prototype("Project hersteld"); }}>
+                <Button variant="ghost" onClick={() => void notify.after(updateProject(p.id, { archived: false }), "Project hersteld")}>
                   <ArchiveRestore aria-hidden />
                   Herstellen
                 </Button>
@@ -215,8 +215,7 @@ function ProjectsTab() {
                   confirmLabel="Archiveren"
                   destructive
                   onConfirm={() => {
-                    updateProject(p.id, { archived: true });
-                    notify.prototype("Project gearchiveerd");
+                    void notify.after(updateProject(p.id, { archived: true }), "Project gearchiveerd");
                   }}
                   trigger={
                     <Button variant="ghost" className="text-km-danger hover:bg-km-danger-soft">
@@ -261,17 +260,16 @@ function ProjectDialog({ value, onClose }: { value: Project | null | "nieuw"; on
         <form
           noValidate
           className="flex flex-col gap-5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!name.trim()) return setError("Geef het project een naam.");
+            let ok: unknown = null;
             if (value === "nieuw") {
-              addProject({ name: name.trim(), description: description.trim() });
-              notify.prototype("Project aangemaakt");
+              ok = await notify.after(addProject({ name: name.trim(), description: description.trim() }), "Project aangemaakt");
             } else if (value) {
-              updateProject(value.id, { name: name.trim(), description: description.trim() });
-              notify.prototype("Project gewijzigd");
+              ok = await notify.after(updateProject(value.id, { name: name.trim(), description: description.trim() }), "Project gewijzigd");
             }
-            onClose();
+            if (ok) onClose();
           }}
         >
           <FormField label="Naam" error={error}>
@@ -330,8 +328,7 @@ function UsersTab() {
                   <Select
                     value={m.role}
                     onValueChange={(v) => {
-                      setMemberRole(m.userId, project!.id, v as Role);
-                      notify.prototype(`${u.name} is nu ${ROLE_LABELS[v as Role].toLowerCase()}`);
+                      void notify.after(setMemberRole(m.userId, project!.id, v as Role), `${u.name} is nu ${ROLE_LABELS[v as Role].toLowerCase()}`);
                     }}
                   >
                     <SelectTrigger className="w-full md:w-44" aria-label={`Rol van ${u.name}`}>
@@ -351,12 +348,11 @@ function UsersTab() {
                 {canManageRoles && !self && (
                   <ConfirmDialog
                     title={`${u.name} uit het project halen?`}
-                    description="Hun bijdragen blijven bestaan. Het verwijderen van persoonsgegevens is een aparte handeling die met de echte database wordt gebouwd."
+                    description="Hun bijdragen blijven bestaan. Het verwijderen van persoonsgegevens is een aparte handeling (via de beheerder van de database)."
                     confirmLabel="Uit project halen"
                     destructive
                     onConfirm={() => {
-                      removeMember(m.userId, project!.id);
-                      notify.prototype(`${u.name} is uit het project gehaald`);
+                      void notify.after(removeMember(m.userId, project!.id), `${u.name} is uit het project gehaald`);
                     }}
                     trigger={
                       <Button variant="ghost" size="icon" aria-label={`${u.name} uit het project halen`}>
@@ -399,8 +395,7 @@ function UsersTab() {
                       confirmLabel="Intrekken"
                       destructive
                       onConfirm={() => {
-                        revokeInvitation(inv.id);
-                        notify.prototype("Uitnodiging ingetrokken");
+                        void notify.after(revokeInvitation(inv.id), "Uitnodiging ingetrokken");
                       }}
                       trigger={
                         <Button variant="ghost" size="sm">
@@ -443,22 +438,35 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
     }
   }
 
-  const submit = (e: React.FormEvent) => {
+  const [busy, setBusy] = React.useState(false);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (method === "e-mail") {
       const errs = !email.trim()
         ? ["Vul een e-mailadres in."]
         : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
           ? ["Dit e-mailadres lijkt niet te kloppen. Controleer het, bijvoorbeeld naam@organisatie.nl."]
-          : ["De uitnodiging is niet verstuurd: er is nog geen e-maildienst gekoppeld. Gebruik voorlopig een toegangslink."];
+          : [];
       setErrors(errs);
-      requestAnimationFrame(() => errRef.current?.focus());
-      return;
+      if (errs.length) {
+        requestAnimationFrame(() => errRef.current?.focus());
+        return;
+      }
     }
+    setBusy(true);
     const expires = new Date(Date.now() + Number(days) * 86400000).toISOString().slice(0, 10);
-    const id = addInvitation({ projectId: project!.id, role: inviteRole, kind: "link", expiresAt: expires });
-    setCreated(id);
-    notify.prototype("Toegangslink aangemaakt");
+    const token = await notify.after(
+      addInvitation({
+        projectId: project!.id,
+        role: inviteRole,
+        kind: method,
+        email: method === "e-mail" ? email.trim().toLowerCase() : undefined,
+        expiresAt: expires,
+      }),
+      method === "e-mail" ? "Persoonlijke uitnodiging aangemaakt" : "Toegangslink aangemaakt",
+    );
+    setBusy(false);
+    if (token) setCreated(token);
   };
 
   return (
@@ -470,8 +478,12 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
         </DialogHeader>
         {created ? (
           <div className="flex flex-col gap-4">
-            <p className="font-semibold text-km-green">De toegangslink is klaar. Deel hem met wie je wilt uitnodigen.</p>
-            <InviteLink path={`/uitnodiging/${created}`} qr={false} />
+            <p className="font-semibold text-km-green">
+              {method === "e-mail"
+                ? `De uitnodiging voor ${email.trim().toLowerCase()} is klaar. Er is nog geen e-maildienst gekoppeld: stuur deze link zelf. Alleen dit e-mailadres kan hem gebruiken.`
+                : "De toegangslink is klaar. Iedereen met deze link kan meedoen tot de vervaldatum. Deel hem dus alleen met wie je wilt uitnodigen."}
+            </p>
+            <InviteLink path={`/uitnodiging/${created}`} qr={false} note="Deel deze link alleen met de bedoelde persoon of groep." />
             <DialogFooter>
               <Button onClick={() => onOpenChange(false)}>Klaar</Button>
             </DialogFooter>
@@ -534,7 +546,9 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Annuleren
               </Button>
-              <Button type="submit">{method === "e-mail" ? "Verstuur uitnodiging" : "Maak toegangslink"}</Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? "Bezig…" : method === "e-mail" ? "Maak persoonlijke uitnodiging" : "Maak toegangslink"}
+              </Button>
             </DialogFooter>
           </form>
         )}
@@ -572,8 +586,7 @@ function SessionsTab() {
                   confirmLabel="Afsluiten"
                   destructive
                   onConfirm={() => {
-                    updateSession(s.id, { state: "afgesloten" });
-                    notify.prototype("Sessie afgesloten");
+                    void notify.after(updateSession(s.id, { state: "afgesloten" }), "Sessie afgesloten");
                   }}
                   trigger={<Button variant="ghost" size="sm">Afsluiten</Button>}
                 />
@@ -611,10 +624,10 @@ function ContentTab() {
                   <p className="text-sm text-km-muted">door {userName(i.authorId)}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => { updateIdea(i.id, { pending: undefined }); notify.prototype("Idee goedgekeurd"); }}>
+                  <Button size="sm" variant="secondary" onClick={() => void notify.after(updateIdea(i.id, { pending: undefined }), "Idee goedgekeurd")}>
                     <Check aria-hidden /> Goedkeuren
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { updateIdea(i.id, { archived: true }); notify.prototype("Idee gearchiveerd"); }}>
+                  <Button size="sm" variant="ghost" onClick={() => void notify.after(updateIdea(i.id, { archived: true }), "Idee gearchiveerd")}>
                     <Archive aria-hidden /> Archiveren
                   </Button>
                 </div>
@@ -637,11 +650,11 @@ function ContentTab() {
                 </p>
                 <div className="flex gap-2">
                   {c.pending && (
-                    <Button size="sm" variant="secondary" onClick={() => { updateContribution(c.id, { pending: undefined }); notify.prototype("Bijdrage goedgekeurd"); }}>
+                    <Button size="sm" variant="secondary" onClick={() => void notify.after(updateContribution(c.id, { pending: undefined }), "Bijdrage goedgekeurd")}>
                       <Check aria-hidden /> Goedkeuren
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => { updateContribution(c.id, { hidden: !c.hidden }); notify.prototype(c.hidden ? "Bijdrage weer zichtbaar" : "Bijdrage verborgen"); }}>
+                  <Button size="sm" variant="ghost" onClick={() => void notify.after(updateContribution(c.id, { hidden: !c.hidden }), c.hidden ? "Bijdrage weer zichtbaar" : "Bijdrage verborgen")}>
                     {c.hidden ? <Eye aria-hidden /> : <EyeOff aria-hidden />} {c.hidden ? "Tonen" : "Verbergen"}
                   </Button>
                 </div>
@@ -691,10 +704,7 @@ function SettingsTab() {
               <Switch
                 id={`set-${s.key}`}
                 checked={p.settings[s.key]}
-                onCheckedChange={(v) => {
-                  updateSettings(p.id, { [s.key]: v });
-                  notify.prototype(`${s.label}: ${v ? "aan" : "uit"}`);
-                }}
+                onCheckedChange={(v) => void notify.after(updateSettings(p.id, { [s.key]: v }), `${s.label}: ${v ? "aan" : "uit"}`)}
               />
             </li>
           ))}

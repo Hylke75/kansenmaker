@@ -8,14 +8,14 @@ import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { RequireProject } from "@/components/km/guards";
 import { EmptyState } from "@/components/km/empty-state";
-import { ErrorSummary, FormField, SampleDataNotice } from "@/components/km/form-field";
+import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, pluralize } from "@/lib/format";
-import { SESSION_ROUNDS } from "@/lib/sample-data";
+import { SESSION_ROUNDS } from "@/lib/constants";
 import type { Session } from "@/lib/types";
 
 export function SessionsScreen() {
@@ -41,7 +41,6 @@ function Inner() {
       <PageHeader
         title="Sessies"
         description={`Samen ideeën ontwikkelen in een begeleide werksessie van ongeveer ${SESSION_ROUNDS.reduce((t, r) => t + r.minutes, 0)} minuten, in zes rondes.`}
-        meta={<SampleDataNotice />}
         actions={
           canFacilitate && (
             <Button onClick={() => setOpen(true)}>
@@ -145,7 +144,8 @@ function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         setErrors([]);
     }
   }
-  const submit = (e: React.FormEvent) => {
+  const [busy, setBusy] = React.useState(false);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = [
       !title.trim() && "Geef de sessie een titel.",
@@ -154,8 +154,13 @@ function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     ].filter((x): x is string => !!x);
     setErrors(errs);
     if (errs.length) return;
-    const id = addSession({ title: title.trim(), date: new Date(date).toISOString(), location: location.trim() || "Nog te bepalen" });
-    notify.prototype("Sessie gepland");
+    setBusy(true);
+    const id = await notify.after(
+      addSession({ title: title.trim(), date: new Date(date).toISOString(), location: location.trim() || "Nog te bepalen" }),
+      "Sessie gepland",
+    );
+    setBusy(false);
+    if (!id) return;
     onOpenChange(false);
     router.push(`/sessies/${id}`);
   };
@@ -181,7 +186,7 @@ function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuleren
             </Button>
-            <Button type="submit">Sessie plannen</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Bezig…" : "Sessie plannen"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

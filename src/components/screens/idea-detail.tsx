@@ -10,7 +10,7 @@ import { NotInProject, RequireProject } from "@/components/km/guards";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { ConceptCreateDialog } from "@/components/km/concept-create-dialog";
 import { EmptyState } from "@/components/km/empty-state";
-import { ErrorSummary, FormField, SampleDataNotice } from "@/components/km/form-field";
+import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -95,8 +95,7 @@ function IdeaDetailInner({ id }: { id: string }) {
           {canModerate && (
             <Button
               onClick={() => {
-                updateIdea(idea.id, { pending: undefined });
-                notify.prototype("Idee goedgekeurd");
+                void notify.after(updateIdea(idea.id, { pending: undefined }), "Idee goedgekeurd");
               }}
             >
               <Check aria-hidden />
@@ -121,7 +120,7 @@ function IdeaDetailInner({ id }: { id: string }) {
             )}
           </section>
 
-          <Contributions ideaId={idea.id} contributions={contributions} canModerate={canModerate} allowComments={project!.settings.allowComments} archived={!!idea.archived} />
+          <Contributions ideaId={idea.id} contributions={contributions} canModerate={canModerate} allowComments={project!.settings.allowComments} requireApproval={project!.settings.requireApproval} archived={!!idea.archived} />
         </div>
 
         <aside className="flex flex-col gap-8" aria-label="Verbanden">
@@ -131,8 +130,7 @@ function IdeaDetailInner({ id }: { id: string }) {
               <Select
                 value={idea.status}
                 onValueChange={(v) => {
-                  updateIdea(idea.id, { status: v as Status });
-                  notify.prototype(`Status gewijzigd naar ‘${STATUS_META[v as Status].label}’`);
+                  void notify.after(updateIdea(idea.id, { status: v as Status }), `Status gewijzigd naar ‘${STATUS_META[v as Status].label}’`);
                 }}
               >
                 <SelectTrigger className="w-full" aria-labelledby="status-label">
@@ -182,8 +180,7 @@ function IdeaDetailInner({ id }: { id: string }) {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    updateIdea(idea.id, { archived: false });
-                    notify.prototype("Idee teruggezet");
+                    void notify.after(updateIdea(idea.id, { archived: false }), "Idee teruggezet");
                   }}
                 >
                   <ArchiveRestore aria-hidden />
@@ -196,8 +193,7 @@ function IdeaDetailInner({ id }: { id: string }) {
                   confirmLabel="Archiveren"
                   destructive
                   onConfirm={() => {
-                    updateIdea(idea.id, { archived: true });
-                    notify.prototype("Idee gearchiveerd");
+                    void notify.after(updateIdea(idea.id, { archived: true }), "Idee gearchiveerd");
                   }}
                   trigger={
                     <Button variant="ghost" className="text-km-danger hover:bg-km-danger-soft">
@@ -209,7 +205,6 @@ function IdeaDetailInner({ id }: { id: string }) {
               )}
             </div>
           )}
-          <SampleDataNotice />
         </aside>
       </div>
 
@@ -236,20 +231,23 @@ function Contributions({
   canModerate,
   allowComments,
   archived,
+  requireApproval,
 }: {
   ideaId: string;
   contributions: ReturnType<typeof useStore>["state"]["contributions"];
   canModerate: boolean;
   allowComments: boolean;
+  requireApproval: boolean;
   archived: boolean;
 }) {
   const { userName, addContribution, updateContribution, currentUser } = useStore();
   const [kind, setKind] = React.useState<ContributionKind>("reactie");
   const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
   const errorRef = React.useRef<HTMLDivElement>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = !text.trim()
       ? ["Schrijf eerst je bijdrage."]
@@ -261,9 +259,17 @@ function Contributions({
       requestAnimationFrame(() => errorRef.current?.focus());
       return;
     }
-    addContribution(ideaId, kind, text);
-    setText("");
-    notify.prototype(kind === "aanvulling" ? "Je aanvulling is toegevoegd" : "Je reactie is geplaatst");
+    setBusy(true);
+    const ok = await notify.after(
+      addContribution(ideaId, kind, text),
+      requireApproval
+        ? "Je bijdrage is geplaatst en wacht op goedkeuring"
+        : kind === "aanvulling"
+          ? "Je aanvulling is toegevoegd"
+          : "Je reactie is geplaatst",
+    );
+    setBusy(false);
+    if (ok) setText("");
   };
 
   return (
@@ -293,11 +299,11 @@ function Contributions({
               {canModerate && c.authorId !== currentUser.id && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {c.pending && (
-                    <Button size="sm" variant="secondary" onClick={() => { updateContribution(c.id, { pending: undefined }); notify.prototype("Bijdrage goedgekeurd"); }}>
+                    <Button size="sm" variant="secondary" onClick={() => void notify.after(updateContribution(c.id, { pending: undefined }), "Bijdrage goedgekeurd")}>
                       <Check aria-hidden /> Goedkeuren
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => { updateContribution(c.id, { hidden: !c.hidden }); notify.prototype(c.hidden ? "Bijdrage weer zichtbaar" : "Bijdrage verborgen"); }}>
+                  <Button size="sm" variant="ghost" onClick={() => void notify.after(updateContribution(c.id, { hidden: !c.hidden }), c.hidden ? "Bijdrage weer zichtbaar" : "Bijdrage verborgen")}>
                     {c.hidden ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
                     {c.hidden ? "Tonen" : "Verbergen"}
                   </Button>
@@ -333,9 +339,9 @@ function Contributions({
           <FormField label="Jouw bijdrage" error={errors[0]}>
             {(p) => <Textarea {...p} value={text} onChange={(e) => setText(e.target.value)} rows={4} className="bg-white" />}
           </FormField>
-          <Button type="submit" className="self-start">
+          <Button type="submit" className="self-start" disabled={busy}>
             <PlusCircle aria-hidden />
-            Plaats bijdrage
+            {busy ? "Bezig…" : "Plaats bijdrage"}
           </Button>
         </form>
       )}
@@ -363,16 +369,15 @@ function EditIdeaDialog({ open, onOpenChange, ideaId }: { open: boolean; onOpenC
     }
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = [!title.trim() && "Geef je idee een naam.", !description.trim() && "De beschrijving mag niet leeg zijn."].filter(
       (x): x is string => !!x,
     );
     setErrors(errs);
     if (errs.length) return;
-    updateIdea(ideaId, { title: title.trim(), description: description.trim(), problem: problem.trim() || undefined });
-    notify.prototype("Wijzigingen doorgevoerd");
-    onOpenChange(false);
+    if (await notify.after(updateIdea(ideaId, { title: title.trim(), description: description.trim(), problem: problem.trim() || undefined }), "Wijzigingen bewaard"))
+      onOpenChange(false);
   };
 
   return (

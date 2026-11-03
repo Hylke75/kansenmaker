@@ -1,4 +1,4 @@
-import { ASSESSMENT_QUESTIONS } from "@/lib/sample-data";
+import { ASSESSMENT_QUESTIONS } from "@/lib/constants";
 import type { AssessmentValue } from "@/lib/types";
 
 export type Outcome = { tone: "obstakel" | "onbekend" | "aannemelijk" | "leeg"; title: string; text: string };

@@ -9,7 +9,6 @@ import { PrimaryButton } from "@/components/km/primary-button";
 import { FilterBar } from "@/components/km/filter-bar";
 import { IdeaCard } from "@/components/km/idea-card";
 import { EmptyState } from "@/components/km/empty-state";
-import { SampleDataNotice } from "@/components/km/form-field";
 import { RequireProject } from "@/components/km/guards";
 import { STATUS_META, STATUSES, StatusBadge } from "@/components/km/status-badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +93,6 @@ function IdeasInner() {
       <PageHeader
         title="Ideeën"
         description="Ideeën verzamelen, aanvullen en combineren. Ieder idee mag nog onaf zijn."
-        meta={<SampleDataNotice />}
         actions={
           <PrimaryButton href="/ideeen/nieuw" icon={<Plus aria-hidden />}>
             Deel een idee

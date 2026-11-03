@@ -65,13 +65,3 @@ export const ErrorSummary = React.forwardRef<HTMLDivElement, { errors: string[] 
     </div>
   );
 });
-
-/** Duidelijk gemarkeerde mededeling dat het om voorbeeldgegevens gaat. */
-export function SampleDataNotice({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return (
-    <p className={cn("inline-flex items-center gap-2 rounded-full border border-dashed border-[#c9a45a] bg-km-warning-soft px-3 py-1 text-sm font-semibold text-km-warning-text", className)}>
-      <span aria-hidden>●</span>
-      {children ?? "Voorbeeldgegevens"}
-    </p>
-  );
-}

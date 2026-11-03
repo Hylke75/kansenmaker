@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import { LogOut, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,12 +18,13 @@ import { initials } from "@/lib/format";
 import { MobileNav } from "./mobile-nav";
 import { Logo } from "./logo";
 import { ProjectPicker } from "./project-picker";
-import { PrototypeSwitcher } from "./prototype-switcher";
-import { notify } from "./toast";
+import { ProfileDialog } from "./profile-dialog";
 
-/** Header — menu (mobiel), projectkiezer, prototypemelding en gebruikersmenu. */
+/** Header — menu (mobiel), projectkiezer en gebruikersmenu. */
 export function Header() {
-  const { currentUser, role } = useStore();
+  const router = useRouter();
+  const { currentUser, role, signOut } = useStore();
+  const [profileOpen, setProfileOpen] = React.useState(false);
   return (
     <header data-print-hide className="sticky top-0 z-30 border-b border-km-line bg-km-offwhite/95 backdrop-blur supports-[backdrop-filter]:bg-km-offwhite/80">
       <div className="mx-auto flex min-h-16 max-w-[1200px] items-center gap-2 px-4 md:px-8">
@@ -31,32 +34,33 @@ export function Header() {
           <ProjectPicker />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <PrototypeSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
                 <span className="flex size-9 items-center justify-center rounded-full bg-km-green text-sm font-bold text-white">
-                  {initials(currentUser.name)}
+                  {initials(currentUser.name || "?")}
                 </span>
                 <span className="sr-only">, gebruikersmenu van {currentUser.name}</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuContent align="end" className="w-72">
               <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
                 <span className="text-base font-semibold text-km-green">{currentUser.name}</span>
+                <span className="truncate text-sm font-normal text-km-muted">{currentUser.email}</span>
                 <span className="text-sm font-normal text-km-muted">{role ? ROLE_LABELS[role] : "Geen rol in dit project"}</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="min-h-11 text-base"
-                onSelect={() => notify.info("Profiel bewerken volgt in stap 2", "Accounts worden gekoppeld zodra de database en authenticatie zijn gebouwd.")}
-              >
+              <DropdownMenuItem className="min-h-11 text-base" onSelect={() => setProfileOpen(true)}>
                 <UserRound aria-hidden />
                 Mijn profiel
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="min-h-11 text-base"
-                onSelect={() => notify.error("Uitloggen is nog niet beschikbaar", "Er is nog geen inlogsysteem gekoppeld. Wissel van gebruiker via ‘Prototype’.")}
+                onSelect={async () => {
+                  await signOut();
+                  router.replace("/inloggen");
+                  router.refresh();
+                }}
               >
                 <LogOut aria-hidden />
                 Uitloggen
@@ -68,6 +72,7 @@ export function Header() {
       <div className="border-t border-km-line px-4 py-2 md:hidden">
         <ProjectPicker />
       </div>
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </header>
   );
 }

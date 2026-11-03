@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Copy } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { useOrigin } from "@/hooks/use-origin";
 import { notify } from "./toast";
 
-/** Deelnamelink + QR-code. In het prototype verwijst de link naar deze omgeving. */
-export function InviteLink({ path, qr = true }: { path: string; qr?: boolean }) {
+/** Link + QR-code met kopieerknop. */
+export function InviteLink({ path, qr = true, note }: { path: string; qr?: boolean; note?: string }) {
   const origin = useOrigin();
+  const id = React.useId();
   const url = `${origin}${path}`;
   const copy = async () => {
     try {
@@ -28,17 +30,17 @@ export function InviteLink({ path, qr = true }: { path: string; qr?: boolean }) 
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <Label htmlFor="deelnamelink" className="font-semibold text-km-green">
-          Deelnamelink
+        <Label htmlFor={id} className="font-semibold text-km-green">
+          Link
         </Label>
         <div className="flex gap-2">
-          <Input id="deelnamelink" readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="min-w-0" />
+          <Input id={id} readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="min-w-0" />
           <Button variant="outline" onClick={copy} className="shrink-0">
             <Copy aria-hidden />
             Kopieer
           </Button>
         </div>
-        <p className="text-sm text-km-muted">Prototype: de link werkt alleen in deze omgeving en controleert nog geen toegang.</p>
+        {note && <p className="text-sm text-km-muted">{note}</p>}
       </div>
     </div>
   );

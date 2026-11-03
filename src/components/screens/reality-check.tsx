@@ -8,10 +8,9 @@ import { PageHeader } from "@/components/km/page-header";
 import { NotInProject, RequireProject } from "@/components/km/guards";
 import { AssessmentControl } from "@/components/km/assessment-control";
 import { assessmentOutcome } from "@/components/km/assessment-outcome";
-import { SampleDataNotice } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
-import { ASSESSMENT_QUESTIONS } from "@/lib/sample-data";
+import { ASSESSMENT_QUESTIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function RealityCheckScreen({ id }: { id: string }) {
@@ -48,7 +47,6 @@ function Inner({ id }: { id: string }) {
         eyebrow={concept.name}
         title="Realiteitstoets"
         description="Beoordeel wat we al weten. Een vraagteken betekent dat we het nog moeten onderzoeken."
-        meta={<SampleDataNotice />}
       />
       {!canEdit && (
         <p className="mb-6 rounded-xl bg-white p-4 ring-1 ring-km-line">
@@ -87,11 +85,13 @@ function Inner({ id }: { id: string }) {
           <Button
             className="mt-5"
             onClick={() => {
-              addResearch(
-                concept.id,
-                toCreate.map((q) => ({ assumption: q.label, method: "", status: "open" as const })),
+              void notify.after(
+                addResearch(
+                  concept.id,
+                  toCreate.map((q) => ({ assumption: q.label, method: "", status: "open" as const })),
+                ),
+                `${toCreate.length} onderzoeksvra${toCreate.length === 1 ? "ag" : "gen"} toegevoegd`,
               );
-              notify.prototype(`${toCreate.length} onderzoeksvra${toCreate.length === 1 ? "ag" : "gen"} toegevoegd`);
             }}
           >
             <ListPlus aria-hidden />

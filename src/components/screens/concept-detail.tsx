@@ -10,7 +10,7 @@ import { NotInProject, RequireProject } from "@/components/km/guards";
 import { StatusBadge, STATUS_META, STATUSES, Tag } from "@/components/km/status-badge";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { EmptyState } from "@/components/km/empty-state";
-import { ErrorSummary, FormField, SampleDataNotice } from "@/components/km/form-field";
+import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { assessmentOutcome } from "@/components/km/assessment-outcome";
 import { notify } from "@/components/km/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,7 +43,7 @@ export function ConceptDetailScreen({ id, initialTab }: { id: string; initialTab
 
 function Inner({ id, initialTab }: { id: string; initialTab?: string }) {
   const router = useRouter();
-  const { allowed, role, userName, updateConcept, currentUser } = useStore();
+  const { allowed, role, userName, updateConcept } = useStore();
   const { concepts, members } = useProjectData();
   const concept = concepts.find((c) => c.id === id);
   const [tab, setTab] = React.useState<string>(CONCEPT_TABS.some((t) => t.value === initialTab) ? initialTab! : "overzicht");
@@ -69,8 +69,7 @@ function Inner({ id, initialTab }: { id: string; initialTab?: string }) {
       setPendingStatus(s);
       return;
     }
-    updateConcept(concept.id, { status: s, readyConfirmedBy: undefined });
-    notify.prototype(`Status gewijzigd naar ‘${STATUS_META[s].label}’`);
+    void notify.after(updateConcept(concept.id, { status: s }), `Status gewijzigd naar ‘${STATUS_META[s].label}’`);
   };
 
   const outcome = assessmentOutcome(concept.assessment);
@@ -88,7 +87,6 @@ function Inner({ id, initialTab }: { id: string; initialTab?: string }) {
             {concept.readyConfirmedBy && concept.status === "klaar-voor-proef" && (
               <span className="text-sm text-km-muted">· Bevestigd door {userName(concept.readyConfirmedBy)}</span>
             )}
-            <SampleDataNotice />
           </>
         }
         actions={
@@ -126,8 +124,7 @@ function Inner({ id, initialTab }: { id: string; initialTab?: string }) {
                 value={concept.ownerId}
                 disabled={role !== "beheerder"}
                 onValueChange={(v) => {
-                  updateConcept(concept.id, { ownerId: v });
-                  notify.prototype(`${userName(v)} is nu verantwoordelijk`);
+                  void notify.after(updateConcept(concept.id, { ownerId: v }), `${userName(v)} is nu verantwoordelijk`);
                 }}
               >
                 <SelectTrigger id={p.id} aria-describedby={p["aria-describedby"]} className="w-full">
@@ -187,8 +184,7 @@ function Inner({ id, initialTab }: { id: string; initialTab?: string }) {
         }
         confirmLabel="Ja, klaar voor proef"
         onConfirm={() => {
-          updateConcept(concept.id, { status: "klaar-voor-proef", readyConfirmedBy: currentUser.id });
-          notify.prototype("Concept is klaar voor proef");
+          void notify.after(updateConcept(concept.id, { status: "klaar-voor-proef" }), "Concept is klaar voor proef");
           setPendingStatus(null);
         }}
       />
@@ -314,12 +310,14 @@ function EditOverviewDialog({ open, onOpenChange, concept }: { open: boolean; on
         <form
           noValidate
           className="flex flex-col gap-5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!description.trim()) return setError("De beschrijving mag niet leeg zijn.");
-            updateConcept(concept.id, { description: description.trim(), distinctiveness: distinct.trim(), missionContribution: mission.trim() });
-            notify.prototype("Overzicht bijgewerkt");
-            onOpenChange(false);
+            const ok = await notify.after(
+              updateConcept(concept.id, { description: description.trim(), distinctiveness: distinct.trim(), missionContribution: mission.trim() }),
+              "Overzicht bijgewerkt",
+            );
+            if (ok) onOpenChange(false);
           }}
         >
           <FormField label="Beschrijving" error={error}>
@@ -380,10 +378,7 @@ function RisksTab({ concept, canManage }: { concept: Concept; canManage: boolean
                           size="icon"
                           className="-my-2 -mr-2 shrink-0"
                           aria-label={`Verwijder ‘${r.text}’`}
-                          onClick={() => {
-                            removeRisk(concept.id, r.id);
-                            notify.prototype("Verwijderd");
-                          }}
+                          onClick={() => void notify.after(removeRisk(concept.id, r.id), "Verwijderd")}
                         >
                           <Trash2 aria-hidden />
                         </Button>
@@ -400,13 +395,15 @@ function RisksTab({ concept, canManage }: { concept: Concept; canManage: boolean
         <form
           noValidate
           className="flex flex-col gap-4 rounded-2xl border border-km-line bg-white p-5 md:flex-row md:items-end"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!text.trim()) return setError("Beschrijf de kans of het risico.");
             setError(undefined);
-            addRisk(concept.id, { kind, text: text.trim() });
-            setText("");
-            notify.prototype(`${{ kans: "Kans", bedreiging: "Bedreiging", belemmering: "Belemmering" }[kind]} toegevoegd`);
+            const ok = await notify.after(
+              addRisk(concept.id, { kind, text: text.trim() }),
+              `${{ kans: "Kans", bedreiging: "Bedreiging", belemmering: "Belemmering" }[kind]} toegevoegd`,
+            );
+            if (ok) setText("");
           }}
         >
           <FormField label="Soort" className="md:w-52">
@@ -478,11 +475,13 @@ function FeasibilityTab({ concept, canManage }: { concept: Concept; canManage: b
               {editing === f.key ? (
                 <form
                   className="flex flex-col gap-3"
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    updateConcept(concept.id, { feasibility: { ...concept.feasibility, [f.key]: draft.trim() } });
-                    setEditing(null);
-                    notify.prototype(`${f.label} bijgewerkt`);
+                    const ok = await notify.after(
+                      updateConcept(concept.id, { feasibility: { ...concept.feasibility, [f.key]: draft.trim() } }),
+                      `${f.label} bijgewerkt`,
+                    );
+                    if (ok) setEditing(null);
                   }}
                 >
                   <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} aria-label={f.label} rows={3} autoFocus />
@@ -562,8 +561,10 @@ function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; c
                         setResult("");
                         return;
                       }
-                      updateResearch(concept.id, r.id, { status: v as ResearchStatus });
-                      notify.prototype(`Onderzoek: ${RESEARCH_LABEL[v as ResearchStatus].toLowerCase()}`);
+                      void notify.after(
+                        updateResearch(concept.id, r.id, { status: v as ResearchStatus }),
+                        `Onderzoek: ${RESEARCH_LABEL[v as ResearchStatus].toLowerCase()}`,
+                      );
                     }}
                   >
                     <SelectTrigger className="w-full" aria-label={`Status van ‘${r.assumption}’`}>
@@ -589,15 +590,19 @@ function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; c
         <form
           noValidate
           className="flex flex-col gap-4 rounded-2xl border border-km-line bg-white p-5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             const errs = !assumption.trim() ? ["Beschrijf de aanname die je wilt toetsen."] : [];
             setErrors(errs);
             if (errs.length) return;
-            addResearch(concept.id, [{ assumption: assumption.trim(), method: method.trim(), status: "open" }]);
-            setAssumption("");
-            setMethod("");
-            notify.prototype("Onderzoeksvraag toegevoegd");
+            const ok = await notify.after(
+              addResearch(concept.id, [{ assumption: assumption.trim(), method: method.trim(), status: "open" }]),
+              "Onderzoeksvraag toegevoegd",
+            );
+            if (ok) {
+              setAssumption("");
+              setMethod("");
+            }
           }}
         >
           <h3 className="text-lg">Onderzoeksvraag toevoegen</h3>
@@ -622,12 +627,14 @@ function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; c
           <form
             noValidate
             className="flex flex-col gap-5"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!result.trim()) return;
-              updateResearch(concept.id, resultFor!, { status: "afgerond", result: result.trim() });
-              notify.prototype("Onderzoek afgerond");
-              setResultFor(null);
+              const ok = await notify.after(
+                updateResearch(concept.id, resultFor!, { status: "afgerond", result: result.trim() }),
+                "Onderzoek afgerond",
+              );
+              if (ok) setResultFor(null);
             }}
           >
             <FormField label="Resultaat" error={result.trim() ? undefined : "Vul het resultaat in om af te ronden."}>
@@ -681,10 +688,7 @@ function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boole
                     className="mt-1"
                     checked={a.status === "klaar"}
                     disabled={!mayEdit}
-                    onCheckedChange={(v) => {
-                      updateAction(a.id, { status: v ? "klaar" : "open" });
-                      notify.prototype(v ? "Actie afgevinkt" : "Actie heropend");
-                    }}
+                    onCheckedChange={(v) => void notify.after(updateAction(a.id, { status: v ? "klaar" : "open" }), v ? "Actie afgevinkt" : "Actie heropend")}
                   />
                   <span className="flex flex-col">
                     <span className={cn("font-semibold text-km-green", a.status === "klaar" && "line-through opacity-70")}>{a.description}</span>
@@ -704,7 +708,7 @@ function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boole
                   </span>
                 </label>
                 {mayEdit && a.status !== "klaar" && (
-                  <Select value={a.status} onValueChange={(v) => updateAction(a.id, { status: v as ActionStatus })}>
+                  <Select value={a.status} onValueChange={(v) => void notify.after(updateAction(a.id, { status: v as ActionStatus }), "Status bijgewerkt")}>
                     <SelectTrigger className="w-full sm:w-36" aria-label={`Status van ‘${a.description}’`}>
                       <SelectValue />
                     </SelectTrigger>
@@ -732,7 +736,7 @@ function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boole
         <form
           noValidate
           className="flex flex-col gap-4 rounded-2xl border border-km-line bg-white p-5"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             const errs = [
               !description.trim() && "Beschrijf de actie.",
@@ -740,10 +744,14 @@ function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boole
             ].filter((x): x is string => !!x);
             setErrors(errs);
             if (errs.length) return;
-            addAction({ description: description.trim(), ownerId: owner, deadline: deadline || undefined, status: "open", conceptId: concept.id });
-            setDescription("");
-            setDeadline("");
-            notify.prototype(`Actie toegewezen aan ${userName(owner)}`);
+            const ok = await notify.after(
+              addAction({ description: description.trim(), ownerId: owner, deadline: deadline || undefined, status: "open", conceptId: concept.id }),
+              `Actie toegewezen aan ${userName(owner)}`,
+            );
+            if (ok) {
+              setDescription("");
+              setDeadline("");
+            }
           }}
         >
           <h3 className="text-lg">Actie toevoegen</h3>

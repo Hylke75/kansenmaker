@@ -7,13 +7,12 @@ import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { NotInProject, RequireProject } from "@/components/km/guards";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
-import { InviteLink } from "@/components/km/invite-link";
+import { SessionInvite } from "@/components/km/session-invite";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
-import { SampleDataNotice } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
-import { SESSION_ROUNDS } from "@/lib/sample-data";
+import { SESSION_ROUNDS } from "@/lib/constants";
 import { downloadCsv } from "@/lib/csv";
 
 export function SessionDetailScreen({ id }: { id: string }) {
@@ -54,7 +53,6 @@ function Inner({ id }: { id: string }) {
               <MapPin className="size-4" aria-hidden />
               {session.location}
             </span>
-            <SampleDataNotice />
           </>
         }
         actions={
@@ -82,7 +80,7 @@ function Inner({ id }: { id: string }) {
             <section aria-labelledby="uitnodigen" className="rounded-2xl border border-km-line bg-white p-6">
               <h2 id="uitnodigen" className="mb-2 text-xl">Deelnemers uitnodigen</h2>
               <p className="mb-4 text-km-muted">Deel de link of laat de QR-code zien aan het begin van de sessie.</p>
-              <InviteLink path={`/sessie/${session.id}`} />
+              <SessionInvite sessionId={session.id} />
             </section>
           )}
 
@@ -185,8 +183,7 @@ function Inner({ id }: { id: string }) {
               confirmLabel="Sessie afsluiten"
               destructive
               onConfirm={() => {
-                updateSession(session.id, { state: "afgesloten" });
-                notify.prototype("Sessie afgesloten");
+                void notify.after(updateSession(session.id, { state: "afgesloten" }), "Sessie afgesloten");
               }}
               trigger={
                 <Button variant="ghost" className="self-start text-km-danger hover:bg-km-danger-soft">

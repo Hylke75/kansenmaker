@@ -8,14 +8,13 @@ import { AccessDenied, NotInProject, RequireProject } from "@/components/km/guar
 import { SessionRound, RoundProgress } from "@/components/km/session-round";
 import { Timer, useTimer } from "@/components/km/timer";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
-import { InviteLink } from "@/components/km/invite-link";
+import { SessionInvite } from "@/components/km/session-invite";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { EmptyState } from "@/components/km/empty-state";
-import { SampleDataNotice } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { SESSION_ROUNDS } from "@/lib/sample-data";
+import { SESSION_ROUNDS } from "@/lib/constants";
 import type { SessionAnswer } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +84,6 @@ function Inner({ id }: { id: string }) {
             <h1 className="mt-1 text-3xl md:text-4xl">{session.title}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <SessionStateBadge state={session.state} />
-              <SampleDataNotice>Voorbeeldgegevens · ‘live’ werkt alleen tussen tabbladen in deze browser</SampleDataNotice>
             </div>
           </div>
           {session.state === "actief" && (
@@ -103,7 +101,7 @@ function Inner({ id }: { id: string }) {
         </div>
         {showInvite && (
           <div className="rounded-2xl border border-km-line bg-white p-5">
-            <InviteLink path={`/sessie/${session.id}`} />
+            <SessionInvite sessionId={session.id} />
           </div>
         )}
       </header>
@@ -112,12 +110,11 @@ function Inner({ id }: { id: string }) {
         <section className="flex flex-col items-start gap-4 rounded-2xl bg-km-softgreen p-8">
           <h2 className="text-2xl">De sessie is nog niet gestart</h2>
           <p>Deel eerst de link of QR-code. Als je start, zien deelnemers direct de opdracht van ronde 1.</p>
-          <InviteLink path={`/sessie/${session.id}`} />
+          <SessionInvite sessionId={session.id} />
           <Button
             size="lg"
             onClick={() => {
-              updateSession(session.id, { state: "actief", activeRound: 1 });
-              notify.prototype("Sessie gestart");
+              void notify.after(updateSession(session.id, { state: "actief", activeRound: 1 }), "Sessie gestart");
             }}
           >
             <Play aria-hidden />
@@ -275,8 +272,7 @@ function Inner({ id }: { id: string }) {
         description="Deelnemers kunnen daarna niets meer toevoegen. Je vindt de resultaten op de sessiepagina."
         confirmLabel="Sessie afronden"
         onConfirm={() => {
-          updateSession(session.id, { state: "afgesloten" });
-          notify.prototype("Sessie afgerond");
+          void notify.after(updateSession(session.id, { state: "afgesloten" }), "Sessie afgerond");
         }}
       />
     </div>

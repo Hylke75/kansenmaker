@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/km/page-header";
 import { FilterBar } from "@/components/km/filter-bar";
 import { AudienceCard } from "@/components/km/audience-card";
 import { EmptyState } from "@/components/km/empty-state";
-import { ErrorSummary, FormField, SampleDataNotice } from "@/components/km/form-field";
+import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { RequireProject } from "@/components/km/guards";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { notify } from "@/components/km/toast";
@@ -50,7 +50,6 @@ function AudiencesInner() {
       <PageHeader
         title="Doelgroepen"
         description="Voor wie kunnen we iets betekenen, en wat hebben zij nodig?"
-        meta={<SampleDataNotice />}
         actions={
           canManage && (
             <>
@@ -134,7 +133,7 @@ export function AudienceDialog({ open, onOpenChange, audience }: { open: boolean
     }
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = [!name.trim() && "Geef de doelgroep een naam.", !description.trim() && "Beschrijf de doelgroep kort."].filter(
       (x): x is string => !!x,
@@ -143,12 +142,10 @@ export function AudienceDialog({ open, onOpenChange, audience }: { open: boolean
     if (errs.length) return;
     const input = { name: name.trim(), description: description.trim(), category: category.trim() || "Overig" };
     if (audience) {
-      updateAudience(audience.id, input);
-      notify.prototype("Doelgroep bijgewerkt");
-      onOpenChange(false);
+      if (await notify.after(updateAudience(audience.id, input), "Doelgroep bijgewerkt")) onOpenChange(false);
     } else {
-      const id = addAudience(input);
-      notify.prototype("Doelgroep toegevoegd");
+      const id = await notify.after(addAudience(input), "Doelgroep toegevoegd");
+      if (!id) return;
       onOpenChange(false);
       router.push(`/doelgroepen/${id}`);
     }
@@ -259,13 +256,13 @@ function MergeDialog({ open, onOpenChange, audiences }: { open: boolean; onOpenC
         open={confirm}
         onOpenChange={setConfirm}
         title={`‘${name(source)}’ samenvoegen met ‘${name(target)}’?`}
-        description="Dit kan in het prototype niet ongedaan worden gemaakt (behalve door de pagina te herladen)."
+        description="Dit kan niet ongedaan worden gemaakt."
         confirmLabel="Ja, samenvoegen"
         destructive
         onConfirm={() => {
-          mergeAudiences(source, target);
-          notify.prototype(`‘${name(source)}’ is samengevoegd met ‘${name(target)}’`);
-          onOpenChange(false);
+          void notify
+            .after(mergeAudiences(source, target), `‘${name(source)}’ is samengevoegd met ‘${name(target)}’`)
+            .then((ok) => ok && onOpenChange(false));
         }}
       />
     </>

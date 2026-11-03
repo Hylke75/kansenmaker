@@ -1,6 +1,6 @@
 /**
  * Datamodel van De Kansenmaker (prototype).
- * Volgt §7 van het functioneel ontwerp. In stap 2 worden dit Supabase-tabellen.
+ * Volgt §7 van het functioneel ontwerp. Opgeslagen in Supabase (zie supabase/migrations).
  */
 
 export type Role = "deelnemer" | "redacteur" | "begeleider" | "beheerder";
@@ -40,6 +40,8 @@ export interface Project {
 export interface User {
   id: string;
   name: string;
+  /** Naam nog niet ingevuld (naam is dan afgeleid van het e-mailadres) */
+  nameMissing?: boolean;
   email: string;
   organisation?: string;
 }
@@ -200,6 +202,9 @@ export interface Session {
 export interface Invitation {
   id: string;
   projectId: string;
+  token: string;
+  createdBy?: string;
+  acceptedAt?: string;
   email?: string;
   role: Role;
   kind: "e-mail" | "link";

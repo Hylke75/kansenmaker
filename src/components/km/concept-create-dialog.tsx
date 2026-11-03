@@ -45,7 +45,8 @@ export function ConceptCreateDialog({
     }
   }
 
-  const submit = (e: React.FormEvent) => {
+  const [busy, setBusy] = React.useState(false);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = [
       !name.trim() && "Geef het concept een naam.",
@@ -57,8 +58,10 @@ export function ConceptCreateDialog({
       requestAnimationFrame(() => errorRef.current?.focus());
       return;
     }
-    const id = addConcept({ name, description, ideaIds });
-    notify.prototype("Concept aangemaakt in de voorbeeldgegevens");
+    setBusy(true);
+    const id = await notify.after(addConcept({ name, description, ideaIds }), "Concept aangemaakt");
+    setBusy(false);
+    if (!id) return;
     onOpenChange(false);
     router.push(`/concepten/${id}`);
   };
@@ -96,7 +99,7 @@ export function ConceptCreateDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuleren
             </Button>
-            <Button type="submit">Concept maken</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Bezig…" : "Concept maken"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
+import { useStore } from "@/lib/store";
+import { LoadingState } from "./guards";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 
 /**
@@ -12,6 +16,8 @@ import * as React from "react";
  * altijd bereikbare primaire actie ‘Deel een idee’ op mobiel.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { state } = useStore();
+  if (state.status !== "ready") return <AuthGate status={state.status} />;
   return (
     <>
       <a
@@ -50,5 +56,26 @@ function MobileShareButton() {
           <Plus className="size-5" aria-hidden />
           Deel een idee
         </Link>
+  );
+}
+
+/** Tijdens het laden van de sessie, bij een verlopen sessie of een fout. */
+function AuthGate({ status }: { status: "loading" | "signed-out" | "error" }) {
+  const router = useRouter();
+  React.useEffect(() => {
+    if (status === "signed-out") router.replace(`/inloggen?next=${encodeURIComponent(window.location.pathname)}`);
+  }, [status, router]);
+  return (
+    <main id="inhoud" className="mx-auto w-full max-w-[1200px] px-4 py-12 md:px-8">
+      {status === "error" ? (
+        <div className="flex flex-col items-start gap-4" role="alert">
+          <h1 className="text-3xl">De gegevens konden niet worden geladen</h1>
+          <p>Controleer je internetverbinding en probeer het opnieuw.</p>
+          <Button onClick={() => window.location.reload()}>Opnieuw proberen</Button>
+        </div>
+      ) : (
+        <LoadingState label={status === "signed-out" ? "Doorsturen naar inloggen…" : "Bezig met laden…"} />
+      )}
+    </main>
   );
 }

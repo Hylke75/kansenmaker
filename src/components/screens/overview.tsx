@@ -7,17 +7,36 @@ import { useProjectData, useStore } from "@/lib/store";
 import { PrimaryButton } from "@/components/km/primary-button";
 import { IdeaCard } from "@/components/km/idea-card";
 import { EmptyState } from "@/components/km/empty-state";
-import { SampleDataNotice, FormField, ErrorSummary } from "@/components/km/form-field";
+import { FormField, ErrorSummary } from "@/components/km/form-field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatDateTime, pluralize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
+import { useRouter } from "next/navigation";
+import { LoadingState } from "@/components/km/guards";
+import { ProfileForm } from "@/components/km/profile-dialog";
 
 export function OverviewScreen() {
-  const { project } = useStore();
+  const { project, projectReady } = useStore();
   if (!project) return <StartScreen />;
+  if (!projectReady) return <LoadingState />;
   return <ProjectOverview />;
+}
+
+/** Vraagt om een naam zolang die nog niet is ingevuld (anderen zien anders alleen je e-mailnaam). */
+function NamePrompt() {
+  const { currentUser, updateProfile } = useStore();
+  if (!currentUser.nameMissing) return null;
+  return (
+    <section aria-labelledby="naam" className="rounded-2xl bg-km-softgreen p-6">
+      <h2 id="naam" className="text-2xl">Hoe heet je?</h2>
+      <p className="mt-1 mb-4">Andere deelnemers zien je naam bij je ideeën en bijdragen.</p>
+      <div className="max-w-md">
+        <ProfileForm initialName="" initialOrg={currentUser.organisation ?? ""} save={updateProfile} submitLabel="Naam bewaren" />
+      </div>
+    </section>
+  );
 }
 
 function ProjectOverview() {
@@ -43,6 +62,7 @@ function ProjectOverview() {
 
   return (
     <div className="flex flex-col gap-14">
+      <NamePrompt />
       <section aria-labelledby="welkom" className="flex flex-col gap-6">
         <div>
           <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL</p>
@@ -56,7 +76,6 @@ function ProjectOverview() {
           <PrimaryButton href="/ideeen/nieuw" size="lg" icon={<Plus aria-hidden />}>
             Deel een idee
           </PrimaryButton>
-          <SampleDataNotice />
         </div>
       </section>
 
@@ -194,19 +213,23 @@ function ProjectOverview() {
 
 /** Startscherm voor een gebruiker zonder projecten — geen leeg dashboard. */
 function StartScreen() {
+  const router = useRouter();
   const [code, setCode] = React.useState("");
   const [errors, setErrors] = React.useState<string[]>([]);
   const errorRef = React.useRef<HTMLDivElement>(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = code.trim()
-      ? ["Deze uitnodiging kan nog niet worden gecontroleerd: er is nog geen database gekoppeld. Wissel via ‘Prototype’ naar een andere gebruiker om verder te kijken."]
-      : ["Vul de uitnodigingscode of -link in."];
-    setErrors(errs);
+    const token = code.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+    if (token) {
+      router.push(`/uitnodiging/${token.toLowerCase()}`);
+      return;
+    }
+    setErrors([code.trim() ? "Dit lijkt geen geldige uitnodigingslink of -code. Kopieer de volledige link uit je uitnodiging." : "Vul de uitnodigingscode of -link in."]);
     requestAnimationFrame(() => errorRef.current?.focus());
   };
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-10 py-6">
+      <NamePrompt />
       <div>
         <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL</p>
         <h1 className="mt-2 text-4xl md:text-5xl">Welkom bij De Kansenmaker</h1>
@@ -233,7 +256,7 @@ function StartScreen() {
         <p className="mb-4">Je doet mee via een uitnodiging van een begeleider of beheerder. Plak hieronder je uitnodigingslink of code.</p>
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <ErrorSummary ref={errorRef} errors={errors} />
-          <FormField label="Uitnodigingscode of link" error={errors.length ? errors[0].split(":")[0] : undefined}>
+          <FormField label="Uitnodigingscode of link" error={errors[0]}>
             {(p) => <Input {...p} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" />}
           </FormField>
           <Button type="submit" className="self-start">

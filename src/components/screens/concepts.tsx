@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/km/page-header";
 import { FilterBar } from "@/components/km/filter-bar";
 import { ConceptCard } from "@/components/km/concept-card";
 import { EmptyState } from "@/components/km/empty-state";
-import { SampleDataNotice } from "@/components/km/form-field";
 import { RequireProject } from "@/components/km/guards";
 import { ConceptCreateDialog } from "@/components/km/concept-create-dialog";
 import { STATUS_META, STATUSES } from "@/components/km/status-badge";
@@ -42,7 +41,6 @@ function Inner() {
       <PageHeader
         title="Concepten"
         description="Kansrijke ideeën uitwerken: kansen en risico’s, haalbaarheid, onderzoek en acties."
-        meta={<SampleDataNotice />}
         actions={
           canManage && (
             <Button onClick={() => setOpen(true)}>
