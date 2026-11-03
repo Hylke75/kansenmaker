@@ -13,6 +13,8 @@ import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime, pluralize } from "@/lib/format";
 import { SESSION_ROUNDS } from "@/lib/constants";
@@ -140,6 +142,7 @@ export function SessionDialog({ open, onOpenChange, session }: { open: boolean; 
   const [title, setTitle] = React.useState("");
   const [date, setDate] = React.useState("");
   const [location, setLocation] = React.useState("");
+  const [selfPaced, setSelfPaced] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
   // Formulier opnieuw vullen bij openen (state aanpassen tijdens render, geen effect).
   const [prevOpen, setPrevOpen] = React.useState(open);
@@ -149,6 +152,7 @@ export function SessionDialog({ open, onOpenChange, session }: { open: boolean; 
       setTitle(session?.title ?? "");
       setDate(session ? toLocalInput(session.date) : "");
       setLocation(session?.location ?? "");
+      setSelfPaced(session?.selfPaced ?? false);
       setErrors([]);
     }
   }
@@ -162,7 +166,7 @@ export function SessionDialog({ open, onOpenChange, session }: { open: boolean; 
     ].filter((x): x is string => !!x);
     setErrors(errs);
     if (errs.length) return;
-    const input = { title: title.trim(), date: new Date(date).toISOString(), location: location.trim() || "Nog te bepalen" };
+    const input = { title: title.trim(), date: new Date(date).toISOString(), location: location.trim() || (selfPaced ? "Online" : "Nog te bepalen"), selfPaced };
     setBusy(true);
     if (session) {
       const ok = await notify.after(updateSession(session.id, input), "Sessie bijgewerkt");
@@ -198,8 +202,28 @@ export function SessionDialog({ open, onOpenChange, session }: { open: boolean; 
             {(p) => <Input {...p} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />}
           </FormField>
           <FormField label="Locatie" optional>
-            {(p) => <Input {...p} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Bijvoorbeeld een buurthuis of ‘Online’" />}
+            {(p) => (
+              <Input
+                {...p}
+                value={location}
+                onChange={(e) => {
+                  setLocation(e.target.value);
+                  // ‘Online’ betekent meestal: ieder in eigen tempo
+                  if (/online/i.test(e.target.value) && !/online/i.test(location)) setSelfPaced(true);
+                }}
+                placeholder="Bijvoorbeeld een buurthuis of ‘Online’"
+              />
+            )}
           </FormField>
+          <Label className="flex cursor-pointer items-start gap-3 rounded-xl border border-km-line p-3 font-normal has-[[data-state=checked]]:border-km-green has-[[data-state=checked]]:bg-km-softgreen">
+            <Checkbox checked={selfPaced} onCheckedChange={(v) => setSelfPaced(v === true)} className="mt-0.5" />
+            <span>
+              <span className="font-semibold text-km-green">Online, ieder in eigen tempo</span>
+              <span className="block text-sm text-km-muted">
+                Deelnemers doorlopen de rondes zelf via de link, zonder begeleider. Ze kunnen vrij vooruit en terug.
+              </span>
+            </span>
+          </Label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuleren

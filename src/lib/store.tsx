@@ -252,6 +252,7 @@ async function fetchSessions(pid: string) {
         participantIds: participants.filter((p) => p.session_id === s.id).map((p) => p.user_id),
         guestCount: guests.filter((g) => g.session_id === s.id).length,
         location: s.location,
+        selfPaced: s.self_paced,
       }),
     ),
     sessionAnswers: answers.map(
@@ -909,8 +910,19 @@ function useStoreValue() {
       }),
 
     /* Sessies */
-    addSession: (input: Pick<Session, "title" | "date" | "location">) =>
-      run(async () => (await must(db.from("sessions").insert({ project_id: pid(), title: input.title, starts_at: input.date, location: input.location }).select("id").single())).id),
+    addSession: (input: Pick<Session, "title" | "date" | "location" | "selfPaced">) =>
+      run(
+        async () =>
+          (
+            await must(
+              db
+                .from("sessions")
+                .insert({ project_id: pid(), title: input.title, starts_at: input.date, location: input.location, self_paced: input.selfPaced })
+                .select("id")
+                .single(),
+            )
+          ).id,
+      ),
     updateSession: (id: string, patch: Partial<Session>) =>
       run(
         async () => {
@@ -920,6 +932,7 @@ function useStoreValue() {
           if (patch.title !== undefined) u.title = patch.title.trim();
           if (patch.date !== undefined) u.starts_at = patch.date;
           if (patch.location !== undefined) u.location = patch.location.trim();
+          if (patch.selfPaced !== undefined) u.self_paced = patch.selfPaced;
           await must(db.from("sessions").update(u).eq("id", id).select("id"), { rows: true });
           return true;
         },
@@ -933,6 +946,15 @@ function useStoreValue() {
       run(
         async () => {
           await must(db.from("session_answers").insert({ session_id: sessionId, round, text: text.trim() }));
+          return true;
+        },
+        { reload: "sessions" },
+      ),
+    /** Eigen antwoord in een werksessie bewerken (zolang de sessie actief is) */
+    updateSessionAnswer: (id: string, text: string) =>
+      run(
+        async () => {
+          await must(db.from("session_answers").update({ text: text.trim() }).eq("id", id).select("id"), { rows: true });
           return true;
         },
         { reload: "sessions" },

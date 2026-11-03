@@ -673,6 +673,20 @@ Teksten (aangeleverd door Haags Verhaal) staan centraal in `src/lib/steps.ts`.
 - Een sessie start pas met **Start de sessie** (sessiepagina of begeleidersscherm); een verstreken startdatum zet
   de sessie niet vanzelf aan.
 
+## 21. Werksessie: uitleg, eigen tempo en antwoorden bewerken
+
+- **Rondes volgen de zes stappen:** 1 Onze kracht · 2 Doelgroepen en behoeften · 3 Nieuwe ideeën · 4 Aanvullen en
+  combineren · 5 Kansen en bedreigingen · 6 Selecteren en onderzoeken (stemmen op ronde 3 en 4). Per ronde staat de
+  uitleg van Haags Verhaal (intro, ‘Denk eens na over deze vragen’, ‘Waarom vragen we dit?’) uit `src/lib/steps.ts`.
+  Bovenaan een inklapbaar blok met de welkomsttekst.
+- **Online, in eigen tempo** (`sessions.self_paced`, keuze in het sessieformulier; standaard aan bij locatie ‘Online’):
+  geen begeleider-vermeldingen, geen ‘Nu’-label, iedereen begint bij ronde 1 en bladert zelf.
+- **Na versturen** verdwijnt het invulveld; melding ‘Opgeslagen! Wat wil je nu doen?’ met ‘Voeg nog een … toe’ en
+  ‘Naar de volgende ronde’. Eigen antwoorden zijn te **bewerken** zolang de sessie actief is (ingelogd via RLS-policy
+  ‘eigen antwoord bewerken’, gast via `guest_update_answer`).
+- **Ronde 2** is gestructureerd: doelgroep + één of meer behoeften per antwoord, opgeslagen als leesbare tekst
+  (eerste regel doelgroep, daarna ‘– behoefte’).
+
 ## Bijlage: screenshots
 
 Gemaakt tijdens de controle in stap 1 (met de toenmalige voorbeeldgegevens). Alle screenshots kun je zelf genereren met

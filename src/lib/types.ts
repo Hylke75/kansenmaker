@@ -207,6 +207,14 @@ export interface SessionRoundDef {
   /** Soort invoer die deelnemers geven */
   inputLabel: string;
   voting?: boolean;
+  /** Tekst van de knop om nog een antwoord toe te voegen, bijv. ‘Voeg nog een idee toe’ */
+  addLabel?: string;
+  /** Uitleg van Haags Verhaal uit deze stap(pen) van de KansenKamer (src/lib/steps.ts) */
+  steps?: number[];
+  /** Eigen uitleg als de ronde niet bij een stap hoort */
+  explanation?: { questions: string[]; why: string[] };
+  /** Gestructureerde invoer: ‘doelgroep’ = een doelgroep met één of meer behoeften per antwoord */
+  structured?: "doelgroep";
 }
 
 export interface SessionAnswer {
@@ -235,6 +243,8 @@ export interface Session {
   /** Aantal gasten (deelname via link, zonder account) */
   guestCount?: number;
   location: string;
+  /** Online sessie: iedere deelnemer doorloopt de rondes in eigen tempo, zonder begeleider */
+  selfPaced: boolean;
 }
 
 export interface Invitation {

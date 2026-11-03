@@ -14,49 +14,75 @@ export const ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [
   },
 ];
 
-/** De zes rondes van de werksessie (90 minuten). Namen: aanname, te vergelijken met het werkboek. */
+/**
+ * De zes rondes van de werksessie. Ze volgen de zes stappen van de KansenKamer (src/lib/steps.ts);
+ * per ronde tonen deelnemers de uitleg van Haags Verhaal uit `steps` (intro, vragen, waarom).
+ * Ronde 6 is de stemronde; stemmen kan op de bijdragen uit ronde 3 en 4.
+ */
 export const SESSION_ROUNDS: SessionRoundDef[] = [
   {
     number: 1,
-    title: "Kennismaken en doel",
+    title: "Onze kracht",
     minutes: 10,
-    assignment: "Stel je kort voor. Wat hoop je dat deze sessie oplevert?",
-    inputLabel: "Wat hoop je dat deze sessie oplevert?",
+    assignment: "Wat kan het Haags Verhaal wat anderen niet zomaar kunnen? Noem een sterk punt.",
+    inputLabel: "Een sterk punt van het Haags Verhaal",
+    addLabel: "Voeg nog een sterk punt toe",
+    steps: [1],
   },
   {
     number: 2,
     title: "Doelgroepen en behoeften",
     minutes: 15,
-    assignment: "Voor wie zouden we iets nieuws kunnen betekenen? Noem een doelgroep en wat zij nodig hebben.",
-    inputLabel: "Doelgroep en behoefte",
+    assignment: "Voor wie zouden we iets kunnen betekenen, en wat zoeken, missen of willen zij? Noem een doelgroep en een of meer behoeften.",
+    inputLabel: "Doelgroep en behoeften",
+    addLabel: "Voeg nog een doelgroep toe",
+    structured: "doelgroep",
+    steps: [2, 3],
   },
   {
     number: 3,
     title: "Nieuwe ideeën",
     minutes: 25,
-    assignment: "Bedenk zoveel mogelijk ideeën voor activiteiten, diensten of samenwerkingen. Eén idee per bijdrage.",
+    assignment: "Wat zou het Haags Verhaal kunnen aanbieden? Beschrijf je idee: voor wie, wat er gebeurt en waarom het interessant is. Eén idee per bijdrage.",
     inputLabel: "Jouw idee",
+    addLabel: "Voeg nog een idee toe",
+    steps: [4],
   },
   {
     number: 4,
     title: "Aanvullen en combineren",
     minutes: 15,
-    assignment: "Lees de ideeën van anderen. Welke kun je aanvullen of combineren tot iets sterkers?",
+    assignment: "Een goed idee wordt vaak beter wanneer anderen meedenken. Welk idee kun je aanvullen of combineren tot iets sterkers?",
     inputLabel: "Jouw aanvulling of combinatie",
+    addLabel: "Voeg nog een aanvulling toe",
+    explanation: {
+      questions: [
+        "Zie jij een nieuwe doelgroep voor een idee?",
+        "Ken je een interessante partner die kan helpen?",
+        "Welke ideeën versterken elkaar als je ze combineert?",
+        "Is er een andere toepassing die het idee waardevoller maakt?",
+      ],
+      why: [
+        "Een goed idee wordt vaak beter wanneer anderen meedenken. Door aan te vullen en te combineren ontstaan voorstellen die sterker zijn dan de losse ideeën.",
+      ],
+    },
   },
   {
     number: 5,
-    title: "Kansen en risico’s",
+    title: "Kansen en bedreigingen",
     minutes: 15,
-    assignment: "Kies een idee. Wat maakt het kansrijk, en wat kan het tegenhouden?",
-    inputLabel: "Kans of risico",
+    assignment: "Kies een idee. Wat maakt het kansrijk, en wat kan het lastig maken? Noem een kans, bedreiging of vraag.",
+    inputLabel: "Kans, bedreiging of vraag",
+    addLabel: "Voeg nog een kans of bedreiging toe",
+    steps: [5],
   },
   {
     number: 6,
-    title: "Kiezen en vervolgstappen",
+    title: "Selecteren en onderzoeken",
     minutes: 10,
-    assignment: "Stem op de ideeën die we verder moeten uitwerken. Je hebt drie stemmen.",
+    assignment: "Welke ideeën verdienen een volgende stap? Stem op de ideeën met de meeste potentie. Je hebt drie stemmen.",
     inputLabel: "Vervolgstap (optioneel)",
     voting: true,
+    steps: [6],
   },
 ];

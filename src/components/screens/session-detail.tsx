@@ -52,6 +52,9 @@ function Inner({ id }: { id: string }) {
         meta={
           <>
             <SessionStateBadge state={session.state} />
+            {session.selfPaced && (
+              <span className="rounded-full bg-km-softgreen px-3 py-1 text-sm font-semibold text-km-green">Online, in eigen tempo</span>
+            )}
             <span className="text-sm text-km-muted">{formatDateTime(session.date)}</span>
             <span className="inline-flex items-center gap-1 text-sm text-km-muted">
               <MapPin className="size-4" aria-hidden />
@@ -97,7 +100,9 @@ function Inner({ id }: { id: string }) {
             </h2>
             <p className="mt-1">
               {canFacilitate
-                ? "Deelnemers zien een wachtscherm tot je de sessie start. De startdatum zet de sessie niet vanzelf aan."
+                ? session.selfPaced
+                  ? "Deelnemers kunnen pas invullen als je de sessie start. Daarna doorloopt ieder de rondes in eigen tempo."
+                  : "Deelnemers zien een wachtscherm tot je de sessie start. De startdatum zet de sessie niet vanzelf aan."
                 : "De begeleider start de sessie. Daarna kun je meedoen."}
             </p>
           </div>
@@ -177,7 +182,7 @@ function Inner({ id }: { id: string }) {
                           {list.map((a) => (
                             <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-white p-3 ring-1 ring-km-line sm:flex-row sm:items-start sm:justify-between">
                               <span className="flex flex-col items-start">
-                                <span>
+                                <span className="whitespace-pre-line">
                                   {a.text} <span className="text-sm text-km-muted">— {authorName(a, userName)}</span>
                                 </span>
                                 <AnswerToIdea answer={a} session={session} />

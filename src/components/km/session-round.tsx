@@ -51,7 +51,8 @@ export function RoundProgress({ current, total }: { current: number; total: numb
 
 /**
  * Voortgangsbalk voor deelnemers: gevulde balk met ‘Ronde x van 6’ en aanklikbare rondes.
- * `active` is de ronde waar de begeleider nu is (gemarkeerd met ‘Nu’).
+ * `active` is de ronde waar de begeleider nu is (gemarkeerd met ‘Nu’); weglaten bij een online
+ * sessie in eigen tempo.
  */
 export function RoundProgressBar({
   rounds,
@@ -61,7 +62,7 @@ export function RoundProgressBar({
 }: {
   rounds: SessionRoundDef[];
   view: number;
-  active: number;
+  active?: number;
   onSelect: (n: number) => void;
 }) {
   const total = rounds.length;
@@ -164,15 +165,16 @@ export function RoundArrows({
 }
 
 /**
- * Welke ronde een deelnemer bekijkt. Begint bij de ronde van de begeleider en springt mee
- * zodra de begeleider een andere ronde kiest; daartussen bladert de deelnemer zelf.
+ * Welke ronde een deelnemer bekijkt. Met begeleider (`follow`): begint bij diens ronde en springt
+ * mee zodra de begeleider een andere ronde kiest. Online in eigen tempo: begint bij `start` en
+ * de deelnemer bladert helemaal zelf.
  */
-export function useViewRound(active: number) {
-  const [view, setView] = React.useState(active);
-  const [prevActive, setPrevActive] = React.useState(active);
-  if (active !== prevActive) {
-    setPrevActive(active);
-    setView(active);
+export function useViewRound(start: number, follow: boolean) {
+  const [view, setView] = React.useState(start);
+  const [prevStart, setPrevStart] = React.useState(start);
+  if (follow && start !== prevStart) {
+    setPrevStart(start);
+    setView(start);
   }
   const select = React.useCallback((n: number) => {
     setView(n);

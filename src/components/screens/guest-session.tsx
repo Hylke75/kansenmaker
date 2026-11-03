@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CircleAlert, CircleCheck, Clock, Send, ThumbsUp } from "lucide-react";
+import { CircleAlert, CircleCheck, Clock, ThumbsUp } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { SESSION_ROUNDS } from "@/lib/constants";
 import { Logo } from "@/components/km/logo";
@@ -10,10 +10,11 @@ import { SessionRound, RoundArrows, RoundProgressBar, useViewRound } from "@/com
 import { EmptyState } from "@/components/km/empty-state";
 import { LoadingState } from "@/components/km/guards";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
+import { AnswerPanel } from "@/components/km/answer-panel";
+import { RoundExplanation, SessionIntro } from "@/components/km/round-explanation";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const MAX_VOTES = 3;
@@ -22,7 +23,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 interface GuestState {
   project_name: string;
-  session: { title: string; state: "gepland" | "actief" | "afgesloten"; active_round: number };
+  session: { title: string; state: "gepland" | "actief" | "afgesloten"; active_round: number; self_paced: boolean };
   allow_voting: boolean;
   guest: { id: string; name: string } | null;
   my_answers: { id: string; round: number; text: string; hidden: boolean }[];
@@ -154,9 +155,9 @@ function JoinForm({ token, state, onJoined }: { token: string; state: GuestState
         }}
       >
         <h2 className="text-2xl">Doe mee</h2>
-        <p>Je hebt geen account nodig. Vul alleen je naam in; de begeleider ziet die bij je antwoorden.</p>
+        <p>Je hebt geen account nodig. Vul alleen je naam in; Haags Verhaal ziet die bij je antwoorden.</p>
         <ErrorSummary ref={ref} errors={errors} />
-        <FormField label="Hoe mag de begeleider je noemen?" error={errors[0]}>
+        <FormField label="Wat is je naam?" error={errors[0]}>
           {(p) => <Input {...p} autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} />}
         </FormField>
         <Button type="submit" size="lg" className="self-stretch sm:self-start" disabled={busy}>
@@ -175,28 +176,28 @@ function JoinForm({ token, state, onJoined }: { token: string; state: GuestState
 }
 
 function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKey: string; state: GuestState; refresh: () => Promise<void> }) {
-  const [text, setText] = React.useState("");
-  const [error, setError] = React.useState<string>();
   const [voteError, setVoteError] = React.useState<string>();
-  const [busy, setBusy] = React.useState(false);
-  const [sent, setSent] = React.useState<number | null>(null);
   const db = getSupabase();
-  const [view, setView] = useViewRound(state.session.active_round);
+  const selfPaced = state.session.self_paced;
+  const [view, setView] = useViewRound(selfPaced ? 1 : state.session.active_round, !selfPaced);
   const round = SESSION_ROUNDS[view - 1];
-  const select = (n: number) => {
-    setView(n);
-    setText("");
-    setError(undefined);
-    setSent(null);
-  };
 
   if (state.session.state === "gepland") {
     return (
       <>
         <SessionHeader state={state} />
         <div role="status">
-          <EmptyState icon={Clock} title="De sessie is nog niet begonnen" description="Houd deze pagina open. Zodra de begeleider start, verschijnt hier de eerste opdracht." />
+          <EmptyState
+            icon={Clock}
+            title="De sessie is nog niet begonnen"
+            description={
+              selfPaced
+                ? "De sessie is nog niet geopend. Probeer het later nog eens via dezelfde link."
+                : "Houd deze pagina open. Zodra de begeleider start, verschijnt hier de eerste opdracht."
+            }
+          />
         </div>
+        <SessionIntro defaultOpen />
       </>
     );
   }
@@ -213,122 +214,97 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
 
   const mine = state.my_answers.filter((a) => a.round === round.number);
   const myVotes = state.votable.filter((v) => v.mine).length;
+  const next = SESSION_ROUNDS[view];
 
   return (
     <>
       <SessionHeader state={state} />
       <div className="flex flex-col gap-8">
-        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={state.session.active_round} onSelect={select} />
+        <SessionIntro defaultOpen={view === 1 && state.my_answers.length === 0} />
+        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={selfPaced ? undefined : state.session.active_round} onSelect={setView} />
         <div aria-live="polite">
           <SessionRound round={round} total={SESSION_ROUNDS.length} />
-          {view !== state.session.active_round && (
+          {!selfPaced && view !== state.session.active_round && (
             <p className="mt-3 text-sm text-km-muted">
               De begeleider is bij ronde {state.session.active_round}.{" "}
-              <button type="button" className="font-semibold text-km-green underline underline-offset-4" onClick={() => select(state.session.active_round)}>
+              <button type="button" className="font-semibold text-km-green underline underline-offset-4" onClick={() => setView(state.session.active_round)}>
                 Ga naar ronde {state.session.active_round}
               </button>
             </p>
           )}
         </div>
+        <RoundExplanation round={round} />
 
         {round.voting ? (
           !state.allow_voting ? (
-            <p className="rounded-xl bg-white p-4 ring-1 ring-km-line">Stemmen is in dit project uitgeschakeld. De begeleider bespreekt de keuze plenair.</p>
+            <p className="rounded-xl bg-white p-4 ring-1 ring-km-line">Stemmen is in dit project uitgeschakeld.</p>
           ) : (
             <section aria-labelledby="stemmen" className="flex flex-col gap-4">
-              <h2 id="stemmen" className="text-xl">Kies de ideeën die we verder uitwerken</h2>
+              <h2 id="stemmen" className="text-xl">Kies de ideeën met de meeste potentie</h2>
               <p className="text-km-muted" aria-live="polite">Je hebt nog {MAX_VOTES - myVotes} van {MAX_VOTES} stemmen.</p>
               {voteError && (
                 <p role="alert" className="rounded-xl bg-km-danger-soft p-3 font-semibold text-km-danger">{voteError}</p>
               )}
-              <ul className="flex flex-col gap-2">
-                {state.votable.map((a) => (
-                  <li key={a.id}>
-                    <button
-                      type="button"
-                      aria-pressed={a.mine}
-                      onClick={async () => {
-                        if (!a.mine && myVotes >= MAX_VOTES) return setVoteError(`Je hebt al je ${MAX_VOTES} stemmen gebruikt. Haal eerst een stem weg.`);
-                        setVoteError(undefined);
-                        const { error: err } = await db.rpc("guest_toggle_vote", { p_token: token, p_key: guestKey, p_answer: a.id });
-                        if (err) setVoteError(message(err));
-                        await refresh();
-                      }}
-                      className={cn(
-                        "flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left ring-1",
-                        a.mine ? "bg-km-softgreen ring-2 ring-km-green" : "bg-white ring-km-line hover:ring-km-green",
-                      )}
-                    >
-                      <span>{a.text}</span>
-                      <ThumbsUp className={cn("size-5 shrink-0", a.mine ? "fill-km-green text-km-green" : "text-km-muted")} aria-hidden />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {state.votable.length === 0 ? (
+                <p className="rounded-xl bg-white p-4 ring-1 ring-km-line">Er zijn nog geen ideeën om op te stemmen. Ideeën uit ronde 3 en 4 verschijnen hier.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {state.votable.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        aria-pressed={a.mine}
+                        onClick={async () => {
+                          if (!a.mine && myVotes >= MAX_VOTES) return setVoteError(`Je hebt al je ${MAX_VOTES} stemmen gebruikt. Haal eerst een stem weg.`);
+                          setVoteError(undefined);
+                          const { error: err } = await db.rpc("guest_toggle_vote", { p_token: token, p_key: guestKey, p_answer: a.id });
+                          if (err) setVoteError(message(err));
+                          await refresh();
+                        }}
+                        className={cn(
+                          "flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left ring-1",
+                          a.mine ? "bg-km-softgreen ring-2 ring-km-green" : "bg-white ring-km-line hover:ring-km-green",
+                        )}
+                      >
+                        <span className="whitespace-pre-line">{a.text}</span>
+                        <ThumbsUp className={cn("size-5 shrink-0", a.mine ? "fill-km-green text-km-green" : "text-km-muted")} aria-hidden />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )
         ) : (
-          <form
-            noValidate
-            className="flex flex-col gap-4 rounded-2xl bg-km-softgreen p-5"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (busy) return;
-              if (!text.trim()) return setError("Schrijf eerst je antwoord.");
-              if (text.length > 500) return setError("Houd het kort: maximaal 500 tekens.");
-              setError(undefined);
-              setBusy(true);
-              const { error: err } = await db.rpc("guest_submit_answer", { p_token: token, p_key: guestKey, p_text: text.trim(), p_round: view });
-              setBusy(false);
-              if (err) return setError(message(err));
-              setText("");
-              setSent(view);
-              notify.success("Verstuurd naar de begeleider");
+          <AnswerPanel
+            key={round.number}
+            round={round}
+            answers={mine}
+            onNext={next ? () => setView(next.number) : undefined}
+            onSubmit={async (text) => {
+              const { error: err } = await db.rpc("guest_submit_answer", { p_token: token, p_key: guestKey, p_text: text, p_round: round.number });
+              if (err) {
+                notify.error(message(err));
+                return false;
+              }
+              notify.success(selfPaced ? "Je antwoord is opgeslagen" : "Verstuurd naar de begeleider");
               await refresh();
+              return true;
             }}
-          >
-            <FormField label={round.inputLabel} error={error}>
-              {(p) => (
-                <Textarea
-                  {...p}
-                  value={text}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    if (error) setError(undefined);
-                  }}
-                  rows={4}
-                  className="bg-white text-lg"
-                />
-              )}
-            </FormField>
-            {sent === view && (
-              <p role="status" className="flex items-center gap-2 font-semibold text-km-green">
-                <CircleCheck className="size-5" aria-hidden />
-                Verstuurd! Voeg nog iets toe of ga naar de volgende ronde.
-              </p>
-            )}
-            <Button type="submit" size="lg" className="self-stretch sm:self-start" disabled={busy}>
-              <Send aria-hidden />
-              {busy ? "Bezig…" : "Verstuur"}
-            </Button>
-          </form>
+            onSave={async (id, text) => {
+              const { error: err } = await db.rpc("guest_update_answer", { p_token: token, p_key: guestKey, p_answer: id, p_text: text });
+              if (err) {
+                notify.error(message(err));
+                return false;
+              }
+              notify.success("Je antwoord is bijgewerkt");
+              await refresh();
+              return true;
+            }}
+          />
         )}
 
-        {!round.voting && mine.length > 0 && (
-          <section aria-labelledby="mijn">
-            <h2 id="mijn" className="mb-3 text-lg">Jouw bijdragen in deze ronde ({mine.length})</h2>
-            <ul className="flex flex-col gap-2">
-              {mine.map((a) => (
-                <li key={a.id} className="rounded-xl bg-white p-3 ring-1 ring-km-line">
-                  {a.text}
-                  {a.hidden && <span className="ml-2 text-sm text-km-muted">(verborgen door begeleider)</span>}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={select} className="border-t border-km-line pt-6" />
+        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={setView} className="border-t border-km-line pt-6" />
       </div>
     </>
   );

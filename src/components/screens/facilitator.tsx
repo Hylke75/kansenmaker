@@ -192,7 +192,7 @@ function Inner({ id }: { id: string }) {
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {sorted.map((a) => (
                   <li key={a.id} className={cn("flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-km-line", a.hidden && "bg-km-offwhite ring-km-muted")}>
-                    <p className={cn(a.hidden && "line-through")}>{a.text}</p>
+                    <p className={cn("whitespace-pre-line", a.hidden && "line-through")}>{a.text}</p>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-km-muted">
                       <span>
                         {authorName(a, userName)}
@@ -246,7 +246,7 @@ function Inner({ id }: { id: string }) {
           {visibleAnswers.length > 0 && (
             <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {visibleAnswers.map((a) => (
-                <li key={a.id} className="rounded-2xl bg-white p-5 text-xl ring-1 ring-km-line">
+                <li key={a.id} className="rounded-2xl bg-white p-5 text-xl whitespace-pre-line ring-1 ring-km-line">
                   {a.text}
                   {round.voting && (
                     <span className="mt-2 flex items-center gap-1 text-base font-semibold text-km-green">
