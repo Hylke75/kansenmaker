@@ -1,5 +1,5 @@
 /**
- * Datamodel van De Kansenmaker (prototype).
+ * Datamodel van de KansenKamer (prototype).
  * Volgt §7 van het functioneel ontwerp. Opgeslagen in Supabase (zie supabase/migrations).
  */
 

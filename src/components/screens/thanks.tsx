@@ -8,7 +8,7 @@ import { THANKS } from "@/lib/steps";
 export function ThanksScreen() {
   return (
     <div className="mx-auto max-w-3xl">
-      <p className="text-sm font-bold tracking-[0.18em] text-km-muted">DE KANSENMAKER</p>
+      <p className="text-sm font-bold tracking-[0.18em] text-km-muted">KANSENKAMER</p>
       <h1 className="mt-2 text-4xl md:text-5xl">{THANKS.title}</h1>
       <p className="mt-4 text-xl text-km-green">{THANKS.lead}</p>
       <div className="mt-6 flex flex-col gap-4 text-lg leading-relaxed">

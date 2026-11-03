@@ -33,7 +33,7 @@ const P = ({ children }: { children: React.ReactNode }) => <p className="mt-4 te
 export function WelcomeScreen() {
   return (
     <PublicFrame>
-      <p className="text-sm font-bold tracking-[0.18em] text-km-muted">DE KANSENMAKER</p>
+      <p className="text-sm font-bold tracking-[0.18em] text-km-muted">KANSENKAMER</p>
       <h1 className="mt-2 text-4xl md:text-5xl">{WELCOME.title}</h1>
       {WELCOME.paragraphs.map((t) => (
         <P key={t}>{t}</P>
@@ -71,7 +71,7 @@ export function HowItWorksScreen() {
         <P key={t}>{t}</P>
       ))}
 
-      <h2 className="mt-12 text-2xl md:text-3xl">De 6 stappen van De Kansenmaker</h2>
+      <h2 className="mt-12 text-2xl md:text-3xl">De 6 stappen van de KansenKamer</h2>
       <ol className="mt-6 flex flex-col gap-4" aria-label="De zes stappen">
         {STEPS.map((s) => (
           <li key={s.number} className="flex gap-4 rounded-2xl border border-km-line bg-white p-5 md:p-6">

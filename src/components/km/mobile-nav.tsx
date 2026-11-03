@@ -21,7 +21,7 @@ export function MobileNav() {
       </SheetTrigger>
       <SheetContent side="left" className="w-[85vw] max-w-xs gap-0 p-0">
         <SheetHeader className="border-b border-km-line p-5">
-          <SheetTitle className="font-heading text-xl font-bold text-km-green">De Kansenmaker</SheetTitle>
+          <SheetTitle className="font-heading text-xl font-bold text-km-green">KansenKamer</SheetTitle>
           <SheetDescription className="text-sm text-km-muted">Haags Verhaal</SheetDescription>
         </SheetHeader>
         <nav aria-label="Hoofdnavigatie" className="overflow-y-auto p-3">

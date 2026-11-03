@@ -162,7 +162,7 @@ function JoinForm({ token, state, onJoined }: { token: string; state: GuestState
           {busy ? "Bezig…" : "Doe mee"}
         </Button>
         <p className="text-sm text-km-muted">
-          Heb je een account bij De Kansenmaker?{" "}
+          Heb je een account bij de KansenKamer?{" "}
           <Link href={`/uitnodiging/${token}`} className="font-semibold text-km-green underline underline-offset-4">
             Log dan in
           </Link>

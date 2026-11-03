@@ -13,8 +13,8 @@ const display = Maven_Pro({ variable: "--font-display", subsets: ["latin"], weig
 const body = Open_Sans({ variable: "--font-body", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "De Kansenmaker — Haags Verhaal", template: "%s — De Kansenmaker" },
-  description: "Samen ontdekken we nieuwe mogelijkheden. De Kansenmaker van Haags Verhaal.",
+  title: { default: "KansenKamer — Haags Verhaal", template: "%s — KansenKamer" },
+  description: "Samen ontdekken we nieuwe mogelijkheden. De KansenKamer van Haags Verhaal.",
   robots: { index: false, follow: false },
 };
 

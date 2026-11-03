@@ -52,7 +52,7 @@ export function InvitationScreen({ token }: { token: string }) {
 
   return (
     <main id="inhoud" tabIndex={-1} className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center px-6 py-12 outline-none">
-      <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL · DE KANSENMAKER</p>
+      <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL · KANSENKAMER</p>
       {preview === null || state.status === "loading" ? (
         <div className="mt-8">
           <LoadingState label="Uitnodiging controleren…" />
@@ -100,7 +100,7 @@ function Problem({ title, text }: { title: string; text: string }) {
         {text}
       </p>
       <Button asChild variant="outline" className="mt-8 self-start">
-        <Link href="/">Naar De Kansenmaker</Link>
+        <Link href="/">Naar de KansenKamer</Link>
       </Button>
     </>
   );

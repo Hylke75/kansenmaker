@@ -1,4 +1,6 @@
-# De Kansenmaker — Haags Verhaal
+# KansenKamer — Haags Verhaal
+
+> Voorheen ‘De Kansenmaker’. Adres: **www.kansenkamer.nl** (tot de DNS klaar is: kansenmaker.vercel.app).
 
 Eén online omgeving waarin mensen doelgroepen en behoeften ontdekken, ideeën delen en aanvullen, kansen en
 risico’s onderzoeken, ideeën uitwerken tot concepten en samen werksessies houden.

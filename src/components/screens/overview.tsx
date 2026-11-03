@@ -50,7 +50,7 @@ function StepsOverview() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 id="stappen" className="text-2xl md:text-3xl">
-            De zes stappen van De Kansenmaker
+            De zes stappen van de KansenKamer
           </h2>
           <p className="mt-1 text-lg">Van wat ons bijzonder maakt naar ideeën die een volgende stap verdienen.</p>
         </div>
@@ -148,7 +148,7 @@ function ProjectOverview() {
       <section aria-labelledby="welkom" className="flex flex-col gap-6">
         <div>
           <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL</p>
-          <h1 id="welkom" className="mt-2 text-4xl md:text-6xl">De Kansenmaker</h1>
+          <h1 id="welkom" className="mt-2 text-4xl md:text-6xl">KansenKamer</h1>
           <p className="mt-4 max-w-2xl text-xl">Samen ontdekken we nieuwe mogelijkheden.</p>
           <p className="mt-2 text-km-muted">
             Je werkt in <strong className="text-km-green">{project!.name}</strong>
@@ -316,7 +316,7 @@ function StartScreen() {
       <NamePrompt />
       <div>
         <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL</p>
-        <h1 className="mt-2 text-4xl md:text-5xl">Welkom bij De Kansenmaker</h1>
+        <h1 className="mt-2 text-4xl md:text-5xl">Welkom in de KansenKamer</h1>
         <p className="mt-4 text-xl">Samen ontdekken we nieuwe mogelijkheden voor ontmoeting en verbinding in Den Haag.</p>
       </div>
       <ol className="grid gap-4 sm:grid-cols-3">

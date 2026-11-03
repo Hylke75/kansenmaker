@@ -741,7 +741,7 @@ function SettingsTab() {
             variant="outline"
             onClick={() =>
               downloadCsv(
-                `kansenmaker-voorbeeld-ideeen-${date}.csv`,
+                `kansenkamer-ideeen-${date}.csv`,
                 ["Titel", "Beschrijving", "Status", "Doelgroepen", "Auteur", "Datum", "Gearchiveerd"],
                 ideas.map((i) => [i.title, i.description, STATUS_META[i.status].label, audienceNames(i.audienceIds), authorName(i, userName), i.createdAt.slice(0, 10), i.archived ? "ja" : "nee"]),
               )
@@ -754,7 +754,7 @@ function SettingsTab() {
             variant="outline"
             onClick={() =>
               downloadCsv(
-                `kansenmaker-voorbeeld-concepten-${date}.csv`,
+                `kansenkamer-concepten-${date}.csv`,
                 ["Naam", "Status", "Eigenaar", "Doelgroepen", "Realiteitstoets", "Open acties"],
                 concepts.map((c) => [
                   c.name,

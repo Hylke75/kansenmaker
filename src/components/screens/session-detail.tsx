@@ -3,7 +3,7 @@
 import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
-import { Download, MapPin, Presentation, Users, ThumbsUp } from "lucide-react";
+import { Download, MapPin, Pencil, Presentation, Users, ThumbsUp } from "lucide-react";
 import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { NotInProject, RequireProject } from "@/components/km/guards";
@@ -13,6 +13,7 @@ import { AnswerToIdea } from "@/components/km/answer-to-idea";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
+import { SessionDialog } from "@/components/screens/sessions";
 import { formatDateTime } from "@/lib/format";
 import { SESSION_ROUNDS } from "@/lib/constants";
 import { downloadCsv } from "@/lib/csv";
@@ -28,6 +29,7 @@ export function SessionDetailScreen({ id }: { id: string }) {
 function Inner({ id }: { id: string }) {
   const { state, allowed, userName, updateSession, currentUser } = useStore();
   const { sessions } = useProjectData();
+  const [editOpen, setEditOpen] = React.useState(false);
   const session = sessions.find((s) => s.id === id);
   if (!session) return <NotInProject kind="sessie" backHref="/sessies" backLabel="Naar alle sessies" />;
   const canFacilitate = allowed("sessies.begeleiden");
@@ -36,7 +38,7 @@ function Inner({ id }: { id: string }) {
 
   const exportResults = () =>
     downloadCsv(
-      `kansenmaker-voorbeeld-sessie-${session.id}.csv`,
+      `kansenkamer-sessie-${session.id}.csv`,
       ["Ronde", "Bijdrage", "Auteur", "Stemmen"],
       answers.map((a) => [String(a.round), a.text, authorName(a, userName), String(a.votes.length)]),
     );
@@ -59,6 +61,12 @@ function Inner({ id }: { id: string }) {
         }
         actions={
           <>
+            {canFacilitate && (
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil aria-hidden />
+                Bewerken
+              </Button>
+            )}
             {session.state === "actief" && (
               <Button asChild variant={canFacilitate ? "outline" : "default"}>
                 <Link href={`/sessie/${session.id}`}>Open sessieruimte</Link>
@@ -75,6 +83,8 @@ function Inner({ id }: { id: string }) {
           </>
         }
       />
+
+      <SessionDialog open={editOpen} onOpenChange={setEditOpen} session={session} />
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-10">

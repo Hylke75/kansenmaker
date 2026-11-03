@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Gegevenslaag van De Kansenmaker, gekoppeld aan Supabase.
+ * Gegevenslaag van de KansenKamer, gekoppeld aan Supabase.
  *
  * - Alle lees- en schrijfacties lopen via de browserclient; Row Level Security in de
  *   database bepaalt wat iemand mag zien en wijzigen (zie supabase/migrations).
@@ -917,6 +917,9 @@ function useStoreValue() {
           const u: Partial<Row<"sessions">> = {};
           if (patch.state) u.state = patch.state;
           if (patch.activeRound) u.active_round = patch.activeRound;
+          if (patch.title !== undefined) u.title = patch.title.trim();
+          if (patch.date !== undefined) u.starts_at = patch.date;
+          if (patch.location !== undefined) u.location = patch.location.trim();
           await must(db.from("sessions").update(u).eq("id", id).select("id"), { rows: true });
           return true;
         },

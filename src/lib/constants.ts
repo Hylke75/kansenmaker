@@ -1,4 +1,4 @@
-/** Vaste inhoud van De Kansenmaker (geen voorbeeldgegevens). */
+/** Vaste inhoud van de KansenKamer (geen voorbeeldgegevens). */
 import type { AssessmentQuestion, SessionRoundDef } from "./types";
 
 /** Stellingen van de realiteitstoets (incl. de missievraag van Haags Verhaal). */

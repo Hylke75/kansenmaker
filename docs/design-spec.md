@@ -1,4 +1,6 @@
-# De Kansenmaker — Design- en interactiespecificatie
+# KansenKamer — Design- en interactiespecificatie
+
+> Naam gewijzigd van ‘De Kansenmaker’ naar **KansenKamer** (in zinnen: ‘de KansenKamer’). Domein: www.kansenkamer.nl.
 
 Haags Verhaal · Stap 1 (interface), stap 2 (database en rechten) en stap 3 (ideeën- en conceptenstroom) · november 2026
 
@@ -649,6 +651,15 @@ Teksten (aangeleverd door Haags Verhaal) staan centraal in `src/lib/steps.ts`.
 - **Nieuw idee / inzendlink:** blok “Twijfel je of je idee goed genoeg is?”.
 - **Test:** `E2E_PASSWORD=… npm run check:steps` doorloopt alle stappen als deelnemer (axe + screenshots). Vereist een
   account `e2e-stappen@kansenmaker.test` (rol deelnemer) in een testproject.
+
+## 19. Profiel en sessies bewerken
+
+- **Mijn profiel → Wachtwoord wijzigen:** nieuw wachtwoord (min. 8 tekens) + herhaling, via `supabase.auth.updateUser`.
+  Meldingen voor gelijk wachtwoord, zwak/gelekt wachtwoord en ‘opnieuw inloggen nodig’. Inloggen met een inloglink blijft
+  altijd mogelijk.
+- **Sessie bewerken** (begeleider/beheerder): titel, startdatum/tijd en locatie. De startdatum mag in het verleden liggen
+  (ook bij een nieuwe sessie); het formulier toont dan een hint. De database-controle op datums in het verleden is
+  verwijderd (migratie `20261107090000_session_past_dates`).
 
 ## Bijlage: screenshots
 

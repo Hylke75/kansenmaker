@@ -10,13 +10,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_ORIGIN = [
+  /^https:\/\/(www\.)?kansenkamer\.nl$/,
   /^https:\/\/kansenmaker\.vercel\.app$/,
   /^https:\/\/kansenmaker(-[a-z0-9-]+)?-hylke-s-projects\.vercel\.app$/,
   /^http:\/\/localhost:\d+$/,
 ];
-const DEFAULT_ORIGIN = "https://kansenmaker.vercel.app";
+const DEFAULT_ORIGIN = "https://www.kansenkamer.nl";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const FROM = Deno.env.get("MAIL_FROM") ?? "De Kansenmaker <kansenmaker@linkandlead.nl>";
+const FROM = Deno.env.get("MAIL_FROM") ?? "KansenKamer <kansenkamer@linkandlead.nl>";
 
 const allowed = (origin: string | null) => !!origin && ALLOWED_ORIGIN.some((re) => re.test(origin));
 
@@ -41,10 +42,10 @@ function mailHtml(link: string, code: string) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;padding:32px">
 <tr><td>
 <p style="margin:0;font-size:12px;font-weight:bold;letter-spacing:3px;color:#5b665f">HAAGS VERHAAL</p>
-<p style="margin:4px 0 24px;font-size:22px;font-weight:bold;color:#103E30">De Kansenmaker</p>
+<p style="margin:4px 0 24px;font-size:22px;font-weight:bold;color:#103E30">KansenKamer</p>
 <h1 style="margin:0 0 12px;font-size:24px;color:#103E30">Je inloglink</h1>
 <p style="margin:0 0 24px;font-size:16px;line-height:1.5">Klik op de knop om in te loggen. De link is één uur geldig en werkt één keer.</p>
-<p style="margin:0 0 24px"><a href="${link}" style="display:inline-block;background:#103E30;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 24px;border-radius:10px">Inloggen bij De Kansenmaker</a></p>
+<p style="margin:0 0 24px"><a href="${link}" style="display:inline-block;background:#103E30;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 24px;border-radius:10px">Inloggen bij de KansenKamer</a></p>
 <p style="margin:0 0 8px;font-size:16px;line-height:1.5">Lees je deze e-mail op een ander apparaat? Vul dan deze code in op het inlogscherm:</p>
 <p style="margin:0 0 24px;font-size:28px;font-weight:bold;letter-spacing:6px;color:#103E30">${code}</p>
 <p style="margin:0;font-size:14px;line-height:1.5;color:#5b665f">Heb je niet geprobeerd in te loggen? Dan kun je deze e-mail negeren.</p>
@@ -52,7 +53,7 @@ function mailHtml(link: string, code: string) {
 }
 
 const mailText = (link: string, code: string) =>
-  `De Kansenmaker – Haags Verhaal\n\nKlik op deze link om in te loggen (één uur geldig, werkt één keer):\n${link}\n\nOf vul deze code in op het inlogscherm: ${code}\n\nHeb je niet geprobeerd in te loggen? Dan kun je deze e-mail negeren.\n`;
+  `KansenKamer – Haags Verhaal\n\nKlik op deze link om in te loggen (één uur geldig, werkt één keer):\n${link}\n\nOf vul deze code in op het inlogscherm: ${code}\n\nHeb je niet geprobeerd in te loggen? Dan kun je deze e-mail negeren.\n`;
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin");
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: FROM,
       to: [email],
-      subject: "Je inloglink voor De Kansenmaker",
+      subject: "Je inloglink voor de KansenKamer",
       html: mailHtml(url.toString(), email_otp),
       text: mailText(url.toString(), email_otp),
     }),

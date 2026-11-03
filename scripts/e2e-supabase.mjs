@@ -95,7 +95,7 @@ await check("Beheerder: overzicht toont het project uit de database", async () =
   const { page } = admin;
   await go(page, "/");
   await page.getByText("E2E-testproject").first().waitFor();
-  await page.getByRole("heading", { name: "De Kansenmaker" }).waitFor();
+  await page.getByRole("heading", { name: "KansenKamer" }).waitFor();
 });
 
 await check("Beheerder: doelgroep en behoefte toevoegen (blijft na herladen)", async () => {
@@ -404,7 +404,7 @@ await check("Nieuwe gebruiker: startscherm, uitnodiging accepteren via toegangsl
   const link = await page.locator('input[readonly][value*="/uitnodiging/"]').inputValue();
   const nieuw = await asUser(process.env.E2E_NEW_EMAIL ?? "e2e-nieuw@kansenmaker.test");
   await go(nieuw.page, "/");
-  await nieuw.page.getByRole("heading", { name: "Welkom bij De Kansenmaker" }).waitFor();
+  await nieuw.page.getByRole("heading", { name: "Welkom in de KansenKamer" }).waitFor();
   await nieuw.page.getByRole("heading", { name: "Hoe heet je?" }).waitFor();
   await nieuw.page.getByLabel("Uitnodigingscode of link").fill(link);
   await nieuw.page.getByRole("button", { name: "Doe mee" }).click();

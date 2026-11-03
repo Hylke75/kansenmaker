@@ -36,7 +36,7 @@ export function PrintOverview() {
           <Printer aria-hidden /> Afdrukken of opslaan als PDF
         </Button>
       </div>
-      <p className="text-sm font-bold tracking-widest text-km-muted">HAAGS VERHAAL · DE KANSENMAKER</p>
+      <p className="text-sm font-bold tracking-widest text-km-muted">HAAGS VERHAAL · KANSENKAMER</p>
       <h1 className="mt-1 text-3xl">{project.name}</h1>
       <p className="mt-1 text-km-muted">Overzicht{today && ` van ${formatDate(today)}`} · voorbeeldgegevens (prototype)</p>
 

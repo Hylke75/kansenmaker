@@ -24,7 +24,7 @@ export const WELCOME = {
 };
 
 export const HOW_IT_WORKS = {
-  title: "Hoe werkt De Kansenmaker?",
+  title: "Hoe werkt de KansenKamer?",
   lead: "In zes stappen gaan we op zoek naar nieuwe mogelijkheden voor het Haags Verhaal.",
   paragraphs: [
     "We beginnen bij wat ons bijzonder maakt. Daarna kijken we voor wie we iets kunnen betekenen, welke behoeften er zijn en welk nieuw aanbod daarbij past.",
@@ -60,7 +60,7 @@ export interface StepText {
   button: string;
 }
 
-/** De zes stappen. Naam, kernvraag, omschrijving en doel: “De 6 stappen van De Kansenmaker – Haags Verhaal”. */
+/** De zes stappen. Naam, kernvraag, omschrijving en doel: “De 6 stappen van de KansenKamer – Haags Verhaal”. */
 export const STEPS: StepText[] = [
   {
     number: 1,
@@ -242,7 +242,7 @@ export const THANKS = {
     "We bekijken de verzamelde ideeën, zoeken naar interessante combinaties en onderzoeken welke voorstellen we verder kunnen ontwikkelen.",
     "Niet ieder idee zal worden uitgevoerd. Maar ook een kleine suggestie kan leiden tot een nieuw inzicht, een bijzondere samenwerking of een activiteit die we anders nooit hadden bedacht.",
     "En het mooie is: dit proces stopt hier niet.",
-    "De Kansenmaker blijft beschikbaar. Je kunt later terugkomen, nieuwe ideeën toevoegen en voortbouwen op de bijdragen van anderen.",
+    "De KansenKamer blijft beschikbaar. Je kunt later terugkomen, nieuwe ideeën toevoegen en voortbouwen op de bijdragen van anderen.",
   ],
   closing: "Want de toekomst van het Haags Verhaal maken we samen.",
   buttons: { ideas: "Bekijk alle ideeën", newIdea: "Voeg nog een idee toe", overview: "Terug naar het overzicht" },

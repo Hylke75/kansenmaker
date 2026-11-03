@@ -97,7 +97,7 @@ export function LoginScreen({ next, linkError }: { next: string; linkError: bool
   return (
     <main id="inhoud" tabIndex={-1} className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-12 outline-none">
       <p className="text-sm font-bold tracking-[0.18em] text-km-muted">HAAGS VERHAAL</p>
-      <p className="mt-1 font-heading text-2xl font-bold text-km-green">De Kansenmaker</p>
+      <p className="mt-1 font-heading text-2xl font-bold text-km-green">KansenKamer</p>
 
       {step === "email" ? (
         <>

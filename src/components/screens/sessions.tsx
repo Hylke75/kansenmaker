@@ -78,7 +78,7 @@ function Inner() {
           )}
         </div>
       )}
-      <NewSessionDialog open={open} onOpenChange={setOpen} />
+      <SessionDialog open={open} onOpenChange={setOpen} />
     </>
   );
 }
@@ -126,9 +126,17 @@ function SessionCard({ session: s, canFacilitate }: { session: Session; canFacil
   );
 }
 
-function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+/** ISO-tijdstip → waarde voor <input type="datetime-local"> in lokale tijd. */
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Sessie plannen of bewerken. Een datum in het verleden mag (bijv. om een eerdere sessie vast te leggen). */
+export function SessionDialog({ open, onOpenChange, session }: { open: boolean; onOpenChange: (o: boolean) => void; session?: Session }) {
   const router = useRouter();
-  const { addSession } = useStore();
+  const { addSession, updateSession } = useStore();
   const [title, setTitle] = React.useState("");
   const [date, setDate] = React.useState("");
   const [location, setLocation] = React.useState("");
@@ -138,27 +146,31 @@ function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (open) {
-        setTitle("");
-        setDate("");
-        setLocation("");
-        setErrors([]);
+      setTitle(session?.title ?? "");
+      setDate(session ? toLocalInput(session.date) : "");
+      setLocation(session?.location ?? "");
+      setErrors([]);
     }
   }
   const [busy, setBusy] = React.useState(false);
+  const isPast = date !== "" && new Date(date) < new Date();
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = [
       !title.trim() && "Geef de sessie een titel.",
-      !date && "Kies een datum en tijd.",
-      date && new Date(date) < new Date() && "De datum ligt in het verleden.",
+      (!date || Number.isNaN(new Date(date).getTime())) && "Kies een datum en tijd.",
     ].filter((x): x is string => !!x);
     setErrors(errs);
     if (errs.length) return;
+    const input = { title: title.trim(), date: new Date(date).toISOString(), location: location.trim() || "Nog te bepalen" };
     setBusy(true);
-    const id = await notify.after(
-      addSession({ title: title.trim(), date: new Date(date).toISOString(), location: location.trim() || "Nog te bepalen" }),
-      "Sessie gepland",
-    );
+    if (session) {
+      const ok = await notify.after(updateSession(session.id, input), "Sessie bijgewerkt");
+      setBusy(false);
+      if (ok) onOpenChange(false);
+      return;
+    }
+    const id = await notify.after(addSession(input), "Sessie gepland");
     setBusy(false);
     if (!id) return;
     onOpenChange(false);
@@ -168,15 +180,21 @@ function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nieuwe sessie</DialogTitle>
-          <DialogDescription>Daarna kun je deelnemers uitnodigen met een link of QR-code.</DialogDescription>
+          <DialogTitle>{session ? "Sessie bewerken" : "Nieuwe sessie"}</DialogTitle>
+          <DialogDescription>
+            {session ? "Wijzig de titel, de startdatum of de locatie." : "Daarna kun je deelnemers uitnodigen met een link of QR-code."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} noValidate className="flex flex-col gap-5">
           <ErrorSummary errors={errors} />
           <FormField label="Titel" error={errors.find((x) => x.includes("titel"))}>
             {(p) => <Input {...p} value={title} onChange={(e) => setTitle(e.target.value)} />}
           </FormField>
-          <FormField label="Datum en tijd" error={errors.find((x) => x.includes("datum") || x.includes("Datum") || x.includes("verleden"))}>
+          <FormField
+            label="Startdatum en tijd"
+            hint={isPast ? "Deze datum ligt in het verleden. Dat kan, bijvoorbeeld om een eerdere sessie vast te leggen." : undefined}
+            error={errors.find((x) => x.includes("datum"))}
+          >
             {(p) => <Input {...p} type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />}
           </FormField>
           <FormField label="Locatie" optional>
@@ -186,7 +204,9 @@ function NewSessionDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuleren
             </Button>
-            <Button type="submit" disabled={busy}>{busy ? "Bezig…" : "Sessie plannen"}</Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Bezig…" : session ? "Wijzigingen bewaren" : "Sessie plannen"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

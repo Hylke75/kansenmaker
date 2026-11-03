@@ -5,8 +5,61 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
+import { getSupabase } from "@/lib/supabase/client";
 import { FormField } from "./form-field";
 import { notify } from "./toast";
+
+/** Nieuw wachtwoord instellen voor de ingelogde gebruiker (Supabase Auth). */
+function PasswordForm({ email }: { email: string }) {
+  const [password, setPassword] = React.useState("");
+  const [repeat, setRepeat] = React.useState("");
+  const [errors, setErrors] = React.useState<{ password?: string; repeat?: string }>({});
+  const [busy, setBusy] = React.useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = {
+      password: password.length < 8 ? "Gebruik minimaal 8 tekens." : password.length > 72 ? "Gebruik maximaal 72 tekens." : undefined,
+      repeat: password !== repeat ? "De wachtwoorden zijn niet hetzelfde." : undefined,
+    };
+    setErrors(errs);
+    if (errs.password || errs.repeat) return;
+    setBusy(true);
+    const { error } = await getSupabase().auth.updateUser({ password });
+    setBusy(false);
+    if (error) {
+      const msg =
+        error.code === "same_password"
+          ? "Dit is al je huidige wachtwoord. Kies een ander wachtwoord."
+          : error.code === "weak_password"
+            ? "Dit wachtwoord is te zwak of komt voor in lijsten met gelekte wachtwoorden. Kies een sterker wachtwoord."
+            : error.code === "reauthentication_needed"
+              ? "Log voor de zekerheid opnieuw in en probeer het daarna nog eens."
+              : "Je wachtwoord kon niet worden gewijzigd. Probeer het later opnieuw.";
+      setErrors({ password: msg });
+      return;
+    }
+    setPassword("");
+    setRepeat("");
+    notify.success("Je wachtwoord is gewijzigd");
+  };
+
+  return (
+    <form noValidate onSubmit={submit} className="flex flex-col gap-4">
+      {/* Verborgen gebruikersnaam helpt wachtwoordmanagers het juiste account te kiezen */}
+      <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
+      <FormField label="Nieuw wachtwoord" hint="Minimaal 8 tekens." error={errors.password}>
+        {(p) => <Input {...p} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+      </FormField>
+      <FormField label="Herhaal nieuw wachtwoord" error={errors.repeat}>
+        {(p) => <Input {...p} type="password" autoComplete="new-password" value={repeat} onChange={(e) => setRepeat(e.target.value)} />}
+      </FormField>
+      <Button type="submit" variant="outline" className="self-start" disabled={busy}>
+        {busy ? "Bezig…" : "Wachtwoord wijzigen"}
+      </Button>
+    </form>
+  );
+}
 
 /** Naam en organisatie wijzigen. Het e-mailadres is je inlognaam en wijzig je hier niet. */
 export function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -21,6 +74,17 @@ export function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenCha
           </DialogDescription>
         </DialogHeader>
         {open && <ProfileForm onDone={() => onOpenChange(false)} initialName={currentUser.nameMissing ? "" : currentUser.name} initialOrg={currentUser.organisation ?? ""} save={updateProfile} />}
+        {open && (
+          <section aria-labelledby="wachtwoord-kop" className="mt-2 border-t border-km-line pt-5">
+            <h3 id="wachtwoord-kop" className="text-lg">
+              Wachtwoord wijzigen
+            </h3>
+            <p className="mt-1 mb-4 text-sm text-km-muted">
+              Optioneel. Je kunt altijd ook inloggen met een inloglink per e-mail.
+            </p>
+            <PasswordForm email={currentUser.email} />
+          </section>
+        )}
       </DialogContent>
     </Dialog>
   );

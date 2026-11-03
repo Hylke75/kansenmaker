@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 
   if (!loggedIn && path === "/") {
-    // Nieuwe bezoekers maken eerst kennis met De Kansenmaker.
+    // Nieuwe bezoekers maken eerst kennis met de KansenKamer.
     const url = request.nextUrl.clone();
     url.pathname = "/welkom";
     url.search = "";
