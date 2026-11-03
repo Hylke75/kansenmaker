@@ -3,7 +3,7 @@
 import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
-import { Download, MapPin, Pencil, Presentation, Users, ThumbsUp } from "lucide-react";
+import { Download, MapPin, Pencil, Play, Presentation, Users, ThumbsUp } from "lucide-react";
 import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { NotInProject, RequireProject } from "@/components/km/guards";
@@ -85,6 +85,36 @@ function Inner({ id }: { id: string }) {
       />
 
       <SessionDialog open={editOpen} onOpenChange={setEditOpen} session={session} />
+
+      {session.state === "gepland" && (
+        <section
+          aria-labelledby="niet-gestart"
+          className="mb-10 flex flex-col gap-3 rounded-2xl border-2 border-km-yellow bg-white p-6 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <h2 id="niet-gestart" className="text-xl">
+              De sessie is nog niet gestart
+            </h2>
+            <p className="mt-1">
+              {canFacilitate
+                ? "Deelnemers zien een wachtscherm tot je de sessie start. De startdatum zet de sessie niet vanzelf aan."
+                : "De begeleider start de sessie. Daarna kun je meedoen."}
+            </p>
+          </div>
+          {canFacilitate && (
+            <Button
+              size="lg"
+              className="shrink-0"
+              onClick={() => {
+                void notify.after(updateSession(session.id, { state: "actief", activeRound: 1 }), "Sessie gestart");
+              }}
+            >
+              <Play aria-hidden />
+              Start de sessie
+            </Button>
+          )}
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-10">
