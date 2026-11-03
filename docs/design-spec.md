@@ -1,13 +1,12 @@
 # De Kansenmaker — Design- en interactiespecificatie
 
-Haags Verhaal · Front-end prototype (stap 1 van de bouwvolgorde) · november 2026
+Haags Verhaal · Stap 1 (interface) en stap 2 (database en rechten) · november 2026
 
-> **Status:** volledig klikbaar prototype met **fictieve voorbeeldgegevens**. Er is **geen database, geen
-> authenticatie en geen e-maildienst** gekoppeld. Alle wijzigingen bestaan alleen in het geheugen van het
-> browservenster en verdwijnen bij herladen. De interface zegt dat ook expliciet (badge ‘Voorbeeldgegevens’,
-> knop ‘Prototype’ in de header en de tekst in iedere bevestigingsmelding). Acties die een backend nodig hebben
-> (e-mail versturen, uitloggen, uitnodiging accepteren) geven een eerlijke foutmelding in plaats van succes te
-> simuleren.
+> **Status:** de interface is gekoppeld aan **Supabase** (project `kansenmaker`, regio eu-west-1). Gebruikers loggen
+> **wachtwoordloos** in, alle gegevens worden echt opgeslagen en **Row Level Security** in de database dwingt de
+> rechten per project en rol af. Werksessies werken live via Supabase Realtime. De voorbeeldgegevens en de
+> prototype-rolwisselaar uit stap 1 zijn verwijderd. Database, rechten, inloggen en testen staan in **§15**.
+> Nog niet gekoppeld: een e-maildienst voor uitnodigingen (de app toont de link om zelf te versturen).
 
 ---
 
@@ -22,11 +21,12 @@ Haags Verhaal · Front-end prototype (stap 1 van de bouwvolgorde) · november 20
 7. [Schermen en interacties](#7-schermen-en-interacties)
 8. [Gebruikersstromen](#8-gebruikersstromen)
 9. [Rollen en rechten](#9-rollen-en-rechten)
-10. [Datamodel in het prototype](#10-datamodel-in-het-prototype)
+10. [Datamodel](#10-datamodel)
 11. [Toegankelijkheid](#11-toegankelijkheid)
 12. [Controle: desktop, tablet en mobiel](#12-controle-desktop-tablet-en-mobiel)
 13. [Aannames en open punten voor de beoordeling](#13-aannames-en-open-punten-voor-de-beoordeling)
 14. [Techniek en ontwikkeling](#14-techniek-en-ontwikkeling)
+15. [Database, rechten, inloggen en testen (stap 2)](#15-database-rechten-inloggen-en-testen-stap-2)
 
 ---
 
@@ -46,7 +46,7 @@ Haags Verhaal · Front-end prototype (stap 1 van de bouwvolgorde) · november 20
 De gevraagde kleuren zijn **voorlopige tokens**, geen geverifieerde huisstijl. Bij controle van
 [haagsverhaal.nl](https://haagsverhaal.nl/) (Elementor-thema, gecontroleerd 3 november 2026) blijkt:
 
-| Kenmerk | Op haagsverhaal.nl | In dit prototype | Actie |
+| Kenmerk | Op haagsverhaal.nl | In De Kansenmaker | Actie |
 |---|---|---|---|
 | Kopletter | **Maven Pro**, vet | Maven Pro 600/700 (Google Fonts, zelf gehost via `next/font`) | Bevestigen |
 | Broodtekst | **Open Sans** | Open Sans | Bevestigen |
@@ -78,7 +78,7 @@ Gedefinieerd in `src/app/globals.css` en via `@theme` beschikbaar als Tailwind-k
 | `--km-line` | `#D6DCD2` | Scheidingslijnen, kaartranden (decoratief) | — |
 | `--km-line-strong` (`--input`) | `#8A968E` | Rand van invoervelden | 3,3:1 (≥ 3:1 voor UI-componenten) |
 | `--km-danger` / `-soft` | `#B3261E` / `#FBEAE8` | Fouten, verwijderen, obstakel | 6,5:1 |
-| `--km-warning-soft` / `-text` | `#FDF1DA` / `#6B4A00` | ‘Nieuw’, ‘Onbekend’, voorbeeldgegevens | > 7:1 |
+| `--km-warning-soft` / `-text` | `#FDF1DA` / `#6B4A00` | ‘Nieuw’, ‘Onbekend’, ‘Wacht op goedkeuring’ | > 7:1 |
 
 > **Regel:** geel (`#E8A638`) is **nooit tekstkleur** en nooit de enige drager van informatie: op gebroken wit is
 > het contrast maar 2,0:1. Geel wordt alleen gebruikt als vlak met donkergroene tekst.
@@ -140,8 +140,7 @@ Maximaal drie kopniveaus per pagina; precies één `h1` per pagina.
 - **Mobiel (< 768 px):** hamburgerknop opent het menu als zijpaneel (dialoog met focusval, Esc sluit).
   Een **zwevende gele knop ‘Deel een idee’** staat altijd rechtsonder (niet op het formulier zelf en niet op
   het begeleiderscherm). De projectkiezer staat onder de header over de volle breedte.
-- **Header:** projectkiezer, knop **‘Prototype’** (uitleg + wisselen van fictieve gebruiker/rol) en gebruikersmenu
-  (profiel, uitloggen — beide melden eerlijk dat accounts nog niet gekoppeld zijn).
+- **Header:** projectkiezer en gebruikersmenu (naam, e-mailadres, rol; **Mijn profiel** en **Uitloggen**).
 - **Skiplink** ‘Naar de inhoud’ is de eerste tabstop op elke pagina.
 - **Focuslayout** (`(focus)`-routegroep) zonder zijbalk voor de sessieruimte, het printoverzicht en de uitnodigingspagina.
 
@@ -180,10 +179,12 @@ Alle Kansenmaker-componenten staan in `src/components/km/`; shadcn/ui-basiscompo
 |---|---|---|---|
 | **AppShell** | `app-shell.tsx` | Skiplink, zijbalk, header, `<main id="inhoud">` (max 1200 px), mobiele ‘Deel een idee’-knop | Landmarks, skiplink |
 | **Sidebar** | `sidebar.tsx` | Zes onderdelen met omschrijving, primaire actie, in-/uitklappen (desktop 240 px, tablet 72 px) | `nav` met `aria-label`, `aria-current="page"`, `aria-expanded` op inklapknop, tooltips bij iconen |
-| **Header** | `header.tsx` | Mobiel menu, projectkiezer, prototype-knop, gebruikersmenu | Toegankelijke namen beginnen met zichtbare tekst |
+| **Header** | `header.tsx` | Mobiel menu, projectkiezer, gebruikersmenu (profiel, uitloggen) | Toegankelijke namen beginnen met zichtbare tekst |
 | MobileNav | `mobile-nav.tsx` | Menu als zijpaneel op mobiel; sluit na navigeren | Dialoog met focusval, Esc |
 | ProjectPicker | `project-picker.tsx` | Wisselt project; alle inhoud is per project afgeschermd | Gelabelde select |
-| PrototypeSwitcher | `prototype-switcher.tsx` | Uitleg prototype + wisselen van fictieve gebruiker (rol) | Radiogroep in dialoog |
+| ProfileDialog / ProfileForm | `profile-dialog.tsx` | Naam en organisatie wijzigen; ook als vraag op het overzicht zolang de naam ontbreekt | Gelabelde velden |
+| SessionInvite | `session-invite.tsx` | Deelnamelink + QR-code voor een sessie (uitnodiging, 7 dagen geldig) | Link ook als tekst |
+| LoadingState | `guards.tsx` | Laadweergave tijdens ophalen (voorkomt misleidende lege toestanden) | `role="status"` |
 | **PageHeader** | `page-header.tsx` | Terug-link, bovenregel, `h1`, beschrijving, meta (badges), acties | Eén `h1` |
 | **PrimaryButton** | `primary-button.tsx` | De gele primaire actie; met `href` een link in knopvorm | ≥ 44 px, focusring |
 | Button-varianten | `ui/button.tsx` | `default` (geel), `outline` (secundair), `secondary`, `ghost`, `destructive`, `link` | Tekst breekt af i.p.v. overlopen |
@@ -201,7 +202,7 @@ Alle Kansenmaker-componenten staan in `src/components/km/`; shadcn/ui-basiscompo
 | RoundProgress | `session-round.tsx` | Zes balkjes voortgang | Lijst met `aria-label` |
 | **Timer** + `useTimer` | `timer.tsx` | Aftellen per ronde; start/pauze, +1 minuut, opnieuw; gedeelde klok voor presentatiemodus | `role="timer"`; alleen mijlpalen (5 min, 1 min, tijd om) worden aangekondigd |
 | **ConfirmDialog** | `confirm-dialog.tsx` | Bevestiging voor archiveren, verwijderen, afsluiten, klaar voor proef | `alertdialog`, focus start op **Annuleren** |
-| **Toast** / `notify` | `toast.tsx` | Statusmeldingen (sonner). `notify.prototype()` zegt altijd ‘niets wordt opgeslagen’ | `aria-live`, sluitknop |
+| **Toast** / `notify` | `toast.tsx` | Statusmeldingen (sonner). `notify.after(actie, tekst)` meldt succes pas nadat de database de wijziging bevestigt; fouten meldt de gegevenslaag | `aria-live`, sluitknop |
 | ConceptCreateDialog | `concept-create-dialog.tsx` | Ideeën combineren tot concept (naam, beschrijving, ideeën) | Gevalideerd formulier |
 | InviteLink | `invite-link.tsx` | Deelnamelink + QR-code + kopiëren | Gelabeld veld, QR met titel |
 | SessionStateBadge | `session-state-badge.tsx` | Gepland / Actief / Afgesloten | Icoon + label |
@@ -209,8 +210,9 @@ Alle Kansenmaker-componenten staan in `src/components/km/`; shadcn/ui-basiscompo
 
 ## 7. Schermen en interacties
 
-Alle wijzigingen hieronder gebeuren **in de voorbeeldgegevens** en tonen een melding ‘… · Alleen zichtbaar in
-dit browservenster. Er is nog geen database gekoppeld; niets wordt opgeslagen.’
+Alle wijzigingen hieronder worden in Supabase opgeslagen. Een succesmelding verschijnt pas als de database de
+wijziging heeft bevestigd; lukt het niet (geen rechten, geen verbinding, ongeldige invoer), dan volgt een
+Nederlandstalige foutmelding en blijft de invoer staan.
 
 ### 1 · Overzicht (`/`)
 - Bovenregel ‘HAAGS VERHAAL’, titel ‘De Kansenmaker’, ‘Samen ontdekken we nieuwe mogelijkheden.’, actief project.
@@ -312,7 +314,8 @@ Vaste tekst: ‘Deze beoordeling is geen automatische goedkeuring. De beheerder 
 - Rondelijst: direct naar een ronde springen (`aria-current="step"`).
 - **Binnenkomende antwoorden** van de huidige ronde met **Verbergen/Tonen**; in de stemronde gesorteerd op stemmen.
 - **Uitnodigen** klapt link + QR open. **Presentatiemodus**: schermvullend, grote ronde, grote timer (dezelfde klok), zichtbare antwoorden, Vorige/Volgende; **Esc** of ‘Sluiten’.
-- ‘Live’ in het prototype: begeleiderscherm en sessieruimte in **twee tabbladen van dezelfde browser** blijven synchroon (BroadcastChannel). Echte live-samenwerking volgt in stap 4.
+- **Live** via Supabase Realtime: rondewissels, nieuwe antwoorden, verborgen antwoorden en stemmen verschijnen direct bij begeleider én deelnemers, op elk apparaat.
+- **Uitnodigen** maakt een deelnamelink + QR-code (uitnodiging met rol deelnemer, 7 dagen geldig). Nieuwe mensen loggen in, worden lid van het project en komen direct in de sessieruimte.
 
 ### 13 · Beheer (`/beheer`)
 Tabbladen per rol:
@@ -356,19 +359,19 @@ Centraal vastgelegd in `src/lib/permissions.ts` (`can(role, permission)`); recht
 | Projectinstellingen wijzigen, export | — | — | — | ✓ |
 | Gebruikersrechten beheren, doelgroepen samenvoegen | — | — | — | ✓ |
 
-In het prototype wissel je van rol via **Prototype** in de header: Sanne (beheerder), Youssef (begeleider),
-Marieke (redacteur), Daan (deelnemer) en ‘Nieuwe gebruiker’ (geen projecten). In stap 2 wordt dit afgedwongen met
-Supabase Row Level Security; de interface-controles blijven als extra laag.
+De matrix wordt **in de database** afgedwongen met Row Level Security en guard-triggers (§15); de interface
+verbergt daarnaast knoppen die je niet mag gebruiken. Wie welke rol heeft, stelt de beheerder in via
+Beheer → Gebruikers of via de rol in een uitnodiging.
 
-## 10. Datamodel in het prototype
+## 10. Datamodel
 
-Types in `src/lib/types.ts`, voorbeeldgegevens in `src/lib/sample-data.ts`, opslag in het geheugen in `src/lib/store.tsx`.
+Interface-types in `src/lib/types.ts`, databasetypes in `src/lib/database.types.ts`, tabellen in `supabase/migrations/`.
 Objecten volgens het functioneel ontwerp: **Project** (+ instellingen), **Doelgroep**, **Behoefte**, **Idee**,
 **Concept** (met kansen/bedreigingen/belemmeringen, haalbaarheid, onderzoek, realiteitstoets), **Actie**, plus
 gebruikers, lidmaatschappen (rol per project), sessies, sessie-antwoorden (met stemmen), bijdragen
 (reactie/aanvulling), uitnodigingen en activiteit.
 
-Functionele regels die het prototype al volgt: idee ↔ meerdere doelgroepen; concept uit meerdere ideeën; idee
+Functionele regels (afgedwongen in de database): idee ↔ meerdere doelgroepen; concept uit meerdere ideeën; idee
 blijft bestaan na koppeling; ‘Klaar voor proef’ pas na bevestiging door bevoegde gebruiker; deelnemer wijzigt alleen
 eigen bijdragen; inhoud van andere projecten is nooit zichtbaar (ook niet via een directe URL); gearchiveerde
 ideeën verdwijnen uit gewone overzichten (filter ‘Gearchiveerd’ toont ze).
@@ -407,29 +410,25 @@ Uitgevoerd op de productiebuild (`next build && next start`) met Playwright/Chro
   (logo, gebruikersmenu, verberg-knoppen), onjuiste `dl`-structuur bij Haalbaarheid, te laag contrast bij verborgen
   bijdragen (doorzichtigheid), en onbetrouwbare pijltjestoetsselectie in de realiteitstoets (nu native radioknoppen).
 
-**Functioneel** — `scripts/functional-check.mjs`, **18/18 geslaagd**:
-skiplink · actieve navigatie · idee toevoegen met validatie in drie stappen · zoeken, statusfilter, drie weergaven
-en paginering · bijdrage met foutmelding en plaatsen · archiveren via bevestiging (focus op Annuleren) · vijf
-concepttabbladen met URL en pijltjestoetsen · actie toevoegen en afvinken · realiteitstoets met toetsenbord, uitkomst
-en onderzoeksvragen · ‘Klaar voor proef’ (redacteur: fout, beheerder: bevestiging) · begeleiden: rondes, timer,
-presentatiemodus met Esc · sessieruimte: fout bij leeg, versturen · synchronisatie begeleider ↔ deelnemer tussen
-tabbladen · beheer: eerlijke e-mailfout, toegangslink, instelling wisselen · deelnemer zonder toegang tot beheer en
-begeleiden · startscherm zonder project · nette melding bij onbekend idee · mobiel menu en zwevende ‘Deel een idee’.
+**Functioneel tegen de echte database** — `scripts/e2e-supabase.mjs`, **14/14 geslaagd** (zie §15.6).
 
-Opnieuw draaien:
+De visuele controle is na stap 2 opnieuw uitgevoerd, ingelogd met echte gegevens: **72 controles** (24 routes incl.
+inlogpagina × 3 breedtes), **0 axe-overtredingen, 0 px horizontale overloop**, geen consolefouten behalve de bedoelde 404.
+
+Opnieuw draaien (met tijdelijke testaccounts, zie §15.6):
 ```bash
 npm run build && npm start
 ```
 ```bash
-npm run check:functional
+E2E_PASSWORD=… npm run check:e2e
 ```
 ```bash
-npm run check:visual
+E2E_PASSWORD=… npm run check:visual
 ```
 
 ## 13. Aannames en open punten voor de beoordeling
 
-1. **Kleuren** — voorstel wijkt af van de website (§2). Kiezen: voorstel houden, website-kleuren of een mengvorm.
+1. **Kleuren** — besloten: het kleurvoorstel blijft (wijkt bewust af van de website, §2).
 2. **Namen van de zes rondes** — het werkboek was niet beschikbaar. Aangenomen: 1 Kennismaken en doel (10) ·
    2 Doelgroepen en behoeften (15) · 3 Nieuwe ideeën (25) · 4 Aanvullen en combineren (15) · 5 Kansen en risico’s (15) ·
    6 Kiezen en vervolgstappen (10) = 90 minuten. Graag vergelijken met het werkboek.
@@ -440,11 +439,11 @@ npm run check:visual
 7. **Begeleiders** zien de tabbladen Overzicht, Gebruikers (alleen deelnemers uitnodigen) en Sessies in Beheer;
    redacteuren Overzicht en Inhoud.
 8. **Logo** — tijdelijk woordmerk; graag officiële logobestanden aanleveren.
-9. **Persoonsgegevens verwijderen** is bewust nog niet gebouwd (vereist backend en een AVG-procedure).
+9. **Persoonsgegevens verwijderen** gaat nu via de databasebeheerder (account verwijderen in Supabase verwijdert ook
+   profiel en lidmaatschappen; bijdragen blijven anoniem bestaan). Een knop hiervoor in Beheer volgt met een AVG-procedure.
 
-**Niet gebouwd in deze stap** (conform opdracht): database, authenticatie, Row Level Security, e-mail,
-echte live-samenwerking, PDF/Word-rapportage, AI-functies. Vercel en Supabase zijn aangemaakt maar nog **niet**
-gekoppeld; dat is stap 2 na akkoord op dit prototype.
+**Nog niet gebouwd:** e-mailverzending van uitnodigingen en meldingen, PDF/Word-rapportage, campagnes,
+AI-functies (fase 2/3 van het functioneel ontwerp).
 
 ## 14. Techniek en ontwikkeling
 
@@ -457,17 +456,88 @@ gekoppeld; dat is stap 2 na akkoord op dit prototype.
   src/components/km/     Kansenmaker-componenten
   src/components/ui/     shadcn/ui-basis (aangepast)
   src/components/screens/ schermen (client components)
-  src/lib/               types, voorbeeldgegevens, opslag, rechten, CSV, opmaak
+  src/lib/               types, constanten, gegevenslaag (store.tsx), rechten, CSV, opmaak
+  src/lib/supabase/      browser-, server- en proxyclient
+  src/proxy.ts           sessie vernieuwen en niet-ingelogden naar /inloggen
+  src/app/auth/          landing van de inloglink (callback/confirm)
+  supabase/migrations/   schema, functies/triggers, RLS, RPC's en realtime
+  supabase/tests/        RLS-test per rol
   src/hooks/             media query, vandaag, origin
-  scripts/               visuele en functionele controle
+  scripts/               visuele controle, e2e-test, generator databasetypes
   ```
 - Ontwikkelen: `npm install`, `npm run dev` → http://localhost:3000.
-- Controles: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run check:visual`, `npm run check:functional`
+- Controles: `npm run lint`, `npm run typecheck`, `npm run build`, `npm run check:e2e`, `npm run check:visual`
   (Playwright moet beschikbaar zijn; de app draait op `http://localhost:3000`).
+
+## 15. Database, rechten, inloggen en testen (stap 2)
+
+### 15.1 Architectuur
+- **Supabase** (Postgres 17, Auth, Realtime), project `kansenmaker` (`taonpzydehufcqyouzyp`, eu-west-1).
+- De browser praat rechtstreeks met Supabase via de **publiceerbare sleutel**; die is openbaar. Alle beveiliging zit
+  in de database (**Row Level Security**, guard-triggers en RPC's met eigen controle).
+- `src/proxy.ts` (Next 16, opvolger van middleware) vernieuwt bij elk verzoek de sessiecookie en stuurt
+  niet-ingelogde bezoekers naar `/inloggen`. Openbaar: `/inloggen`, `/auth/*`, `/uitnodiging/*`.
+- `src/lib/store.tsx` laadt het actieve project in één keer en laadt na elke wijziging opnieuw. Bij een update of
+  verwijdering die 0 rijen raakt (bijv. door RLS) volgt een foutmelding in plaats van stilzwijgend ‘gelukt’.
+- Projectkeuze wordt per browser onthouden (localStorage, alleen een gemak).
+
+### 15.2 Migraties (`supabase/migrations/`)
+| Bestand | Inhoud |
+|---|---|
+| `…120000_schema.sql` | 23 tabellen: profiles, projects (+instellingen), project_members, audiences, needs, ideas (+idea_audiences, idea_needs, idea_relations), contributions, concepts (+concept_ideas/audiences/needs, risks, research_items), sessions (+session_participants, session_answers, session_votes), actions, invitations, activities. Checks op lengtes en toegestane waarden. |
+| `…120100_functions_triggers.sql` | Helperfuncties in schema `private` (is_member, has_role, can_facilitate …), profiel bij registratie, `project_id` altijd overgenomen van de ouder, koppelingen alleen binnen één project, guard-triggers, automatische activiteit. |
+| `…120200_rls.sql` | RLS op alle tabellen, policies volgens de rechtenmatrix (§9). Anoniem: geen toegang tot tabellen. |
+| `…120300_rpc_realtime.sql` | `create_project`, `invitation_preview`, `accept_invitation`, `merge_audiences`; realtime voor sessies, antwoorden en stemmen. |
+
+### 15.3 Afgedwongen regels (selectie)
+- Alleen leden zien iets van een project; profielen alleen van mensen met wie je een project deelt.
+- Ideeën: auteur wordt door de database gezet; status wijzigen alleen door redacteur/begeleider/beheerder; goedkeuren
+  alleen door redacteur/beheerder; wachtende ideeën alleen zichtbaar voor auteur en moderatoren.
+- Bijdragen: geweigerd als reageren uit staat of het idee gearchiveerd is; ‘wacht op goedkeuring’ volgt de projectinstelling.
+- Concepten: **‘Klaar voor proef’ alleen door een beheerder**; de database legt vast wie en wanneer. Verantwoordelijke
+  wijzigen alleen door een beheerder en alleen naar een projectlid.
+- Leden: niemand wijzigt zijn eigen rol; er blijft altijd minstens één beheerder.
+- Sessies: antwoorden alleen in de actieve ronde van een actieve sessie; stemmen alleen in ronde 6, max. 3 per persoon;
+  een afgesloten sessie gaat niet meer open.
+- Uitnodigingen: altijd met vervaldatum; begeleiders nodigen alleen deelnemers uit en alleen voor eigen sessies;
+  intrekken is definitief; persoonlijke uitnodigingen werken alleen voor het juiste e-mailadres.
+- Nieuwe projecten: alleen door iemand die al ergens beheerder is (de eerste beheerder komt via een uitnodiging).
+
+### 15.4 Inloggen (wachtwoordloos)
+- `/inloggen`: e-mailadres → Supabase stuurt een inloglink. Na het klikken landt de link op `/auth/callback`, die de
+  sessie in een cookie zet en doorstuurt naar de oorspronkelijke pagina (`next`, alleen interne paden).
+- Wie de mail op een ander apparaat leest, kan de **code** uit de mail invullen (vereist dat het e-mailsjabloon de code
+  toont, zie 15.5).
+- Verlopen/gebruikte link → terug naar `/inloggen` met een duidelijke melding.
+
+### 15.5 Instellingen in het Supabase-dashboard (handmatig)
+1. **Authentication → URL Configuration:** Site URL = productie-URL; Redirect URLs: `http://localhost:3000/**`,
+   `https://kansenmaker-hylke-s-projects.vercel.app/**` en eventuele eigen domeinen. Zonder deze instelling
+   werken de inloglinks niet.
+2. **E-mailsjablonen (Magic Link / Confirm signup):** optioneel `{{ .Token }}` toevoegen zodat de code zichtbaar is.
+3. **SMTP:** de ingebouwde e-maildienst verstuurt maar een paar mails per uur. Koppel voor echt gebruik een eigen
+   SMTP-dienst (Authentication → SMTP Settings).
+4. **Vercel:** de app gebruikt standaard het project `kansenmaker`. Voor een ander Supabase-project zet je
+   `NEXT_PUBLIC_SUPABASE_URL` en `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in Vercel (zie `.env.example`).
+
+### 15.6 Testen
+- **RLS-test** (`supabase/tests/rls_test.sql`): maakt testgebruikers en -projecten aan, controleert per rol wat wel en
+  niet mag (o.a. statuswijziging, klaar voor proef, uitnodigen, laatste beheerder, cross-project-koppelingen,
+  verborgen antwoorden, uitnodiging accepteren/ingetrokken) en draait alles terug. Resultaat: **alle tests geslaagd**;
+  een tegenproef bevestigt dat een verboden wijziging echt wordt geweigerd.
+- **E2E-test** (`scripts/e2e-supabase.mjs`) tegen de echte database met tijdelijke accounts
+  (`e2e-beheer@`, `e2e-begeleider@`, `e2e-deelnemer@`, `e2e-nieuw@kansenmaker.test`, met wachtwoord, alleen voor de
+  test). **14/14 geslaagd:** doorsturen naar inloggen + validatie · project uit database · doelgroep en behoefte
+  blijven na herladen · idee delen in drie stappen · aanvulling + deelnemer zonder statuskeuze en zonder beheer ·
+  beheerder ziet bijdrage en maakt concept · realiteitstoets blijft na herladen + onderzoeksvragen · klaar voor proef
+  (begeleider fout, beheerder bevestigd) · actie toevoegen/afvinken · sessie plannen + deelnamelink + starten ·
+  **live** rondewissel en antwoord tussen twee browsers · nieuwe gebruiker accepteert uitnodiging · uitnodiging
+  zonder inloggen / ongeldige link · uitloggen.
+- Testaccounts en testproject zijn na de test **verwijderd**; de database is leeg.
 
 ## Bijlage: screenshots
 
-Gemaakt tijdens de controle (productiebuild, voorbeeldgegevens). Alle 69 screenshots kun je zelf genereren met
+Gemaakt tijdens de controle in stap 1 (met de toenmalige voorbeeldgegevens). Alle screenshots kun je zelf genereren met
 `npm run check:visual`.
 
 | Desktop | |

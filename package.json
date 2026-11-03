@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:visual": "node scripts/visual-check.mjs http://localhost:3000 qa-output",
-    "check:functional": "node scripts/functional-check.mjs http://localhost:3000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:e2e": "node scripts/e2e-supabase.mjs http://localhost:3000"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
