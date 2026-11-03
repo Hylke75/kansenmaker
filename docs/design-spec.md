@@ -505,12 +505,14 @@ AI-functies (fase 2/3 van het functioneel ontwerp).
   intrekken is definitief; persoonlijke uitnodigingen werken alleen voor het juiste e-mailadres.
 - Nieuwe projecten: alleen door iemand die al ergens beheerder is (de eerste beheerder komt via een uitnodiging).
 
-### 15.4 Inloggen (wachtwoordloos)
+### 15.4 Inloggen
 - `/inloggen`: e-mailadres → Supabase stuurt een inloglink. Na het klikken landt de link op `/auth/callback`, die de
   sessie in een cookie zet en doorstuurt naar de oorspronkelijke pagina (`next`, alleen interne paden).
 - Wie de mail op een ander apparaat leest, kan de **code** uit de mail invullen (vereist dat het e-mailsjabloon de code
   toont, zie 15.5).
 - Verlopen/gebruikte link → terug naar `/inloggen` met een duidelijke melding.
+- **Inloggen met wachtwoord** (knop onder het formulier): voor accounts die een wachtwoord hebben, zoals het
+  beheerdersaccount. Werkt zonder e-mail, dus ook zolang er geen SMTP is gekoppeld. Wachtwoorden staan nooit in de repo.
 
 ### 15.5 Instellingen in het Supabase-dashboard (handmatig)
 1. **Authentication → URL Configuration:** Site URL = productie-URL; Redirect URLs: `http://localhost:3000/**`,

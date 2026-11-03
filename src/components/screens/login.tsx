@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Mail, KeyRound, ArrowLeft } from "lucide-react";
+import { Mail, KeyRound, ArrowLeft, LogIn } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,13 @@ import { Input } from "@/components/ui/input";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Wachtwoordloos inloggen: inloglink per e-mail, of de code uit dezelfde e-mail. */
+/** Inloggen met een inloglink of code per e-mail, of met e-mailadres en wachtwoord. */
 export function LoginScreen({ next, linkError }: { next: string; linkError: boolean }) {
   const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [code, setCode] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [mode, setMode] = React.useState<"link" | "password">("link");
   const [step, setStep] = React.useState<"email" | "sent">("email");
   const [busy, setBusy] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>(
@@ -53,6 +55,26 @@ export function LoginScreen({ next, linkError }: { next: string; linkError: bool
     requestAnimationFrame(() => headingRef.current?.focus());
   };
 
+  const signInWithPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = email.trim().toLowerCase();
+    if (!value) return fail("Vul je e-mailadres in.");
+    if (!EMAIL_RE.test(value)) return fail("Dit e-mailadres lijkt niet te kloppen, bijvoorbeeld naam@organisatie.nl.");
+    if (!password) return fail("Vul je wachtwoord in.");
+    setBusy(true);
+    const { error } = await getSupabase().auth.signInWithPassword({ email: value, password });
+    if (error) {
+      setBusy(false);
+      return fail(
+        error.status === 429
+          ? "Er zijn te veel inlogpogingen gedaan. Wacht een paar minuten en probeer het opnieuw."
+          : "Dit e-mailadres of wachtwoord klopt niet.",
+      );
+    }
+    router.replace(next);
+    router.refresh();
+  };
+
   const verifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = code.replace(/\s/g, "");
@@ -73,19 +95,58 @@ export function LoginScreen({ next, linkError }: { next: string; linkError: bool
       {step === "email" ? (
         <>
           <h1 className="mt-10 text-3xl md:text-4xl">Inloggen</h1>
-          <p className="mt-3 text-lg">Je hebt geen wachtwoord nodig. We sturen je een inloglink per e-mail.</p>
-          <form onSubmit={sendLink} noValidate className="mt-8 flex flex-col gap-5 rounded-2xl border border-km-line bg-white p-6">
+          <p className="mt-3 text-lg">
+            {mode === "link"
+              ? "Je hebt geen wachtwoord nodig. We sturen je een inloglink per e-mail."
+              : "Log in met je e-mailadres en wachtwoord."}
+          </p>
+          <form
+            onSubmit={mode === "link" ? sendLink : signInWithPassword}
+            noValidate
+            className="mt-8 flex flex-col gap-5 rounded-2xl border border-km-line bg-white p-6"
+          >
             <ErrorSummary ref={errorRef} errors={errors} />
             <FormField label="E-mailadres" error={errors[0]?.includes("e-mailadres") ? errors[0] : undefined}>
               {(p) => (
                 <Input {...p} type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               )}
             </FormField>
+            {mode === "password" && (
+              <FormField label="Wachtwoord" error={errors[0]?.includes("wachtwoord") ? errors[0] : undefined}>
+                {(p) => (
+                  <Input
+                    {...p}
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                )}
+              </FormField>
+            )}
             <Button type="submit" size="lg" disabled={busy}>
-              <Mail aria-hidden />
-              {busy ? "Bezig met versturen…" : "Stuur mij een inloglink"}
+              {mode === "link" ? <Mail aria-hidden /> : <LogIn aria-hidden />}
+              {mode === "link"
+                ? busy
+                  ? "Bezig met versturen…"
+                  : "Stuur mij een inloglink"
+                : busy
+                  ? "Bezig met inloggen…"
+                  : "Inloggen"}
             </Button>
           </form>
+          <Button
+            variant="ghost"
+            className="mt-4 self-start"
+            onClick={() => {
+              setMode(mode === "link" ? "password" : "link");
+              setErrors([]);
+              setPassword("");
+            }}
+          >
+            <KeyRound aria-hidden />
+            {mode === "link" ? "Inloggen met wachtwoord" : "Inloggen zonder wachtwoord (inloglink)"}
+          </Button>
           <p className="mt-6 text-sm text-km-muted">
             Nog geen uitnodiging? Je kunt inloggen, maar je ziet pas inhoud zodra een begeleider of beheerder je uitnodigt
             voor een project.
