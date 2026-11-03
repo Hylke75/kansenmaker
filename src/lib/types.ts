@@ -213,8 +213,12 @@ export interface SessionRoundDef {
   steps?: number[];
   /** Eigen uitleg als de ronde niet bij een stap hoort */
   explanation?: { questions: string[]; why: string[] };
+  /** Minimaal aantal eigen antwoorden voordat je verder kunt naar de volgende rondes */
+  minAnswers?: number;
+  /** Antwoorden horen bij een antwoord uit deze ronde (bijv. ideeën bij doelgroepen uit ronde 2) */
+  linkToRound?: number;
   /** Gestructureerde invoer: ‘doelgroep’ = een doelgroep met één of meer behoeften per antwoord */
-  structured?: "doelgroep";
+  structured?: "doelgroep" | "kans";
 }
 
 export interface SessionAnswer {
@@ -229,6 +233,8 @@ export interface SessionAnswer {
   ideaId?: string;
   /** Ingebracht door een gast (zonder account) */
   guestName?: string;
+  /** Hoort bij dit antwoord (bijv. een idee bij een doelgroep) */
+  parentId?: string;
 }
 
 export interface Session {

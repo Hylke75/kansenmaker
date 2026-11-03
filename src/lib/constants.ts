@@ -37,6 +37,7 @@ export const SESSION_ROUNDS: SessionRoundDef[] = [
     inputLabel: "Doelgroep en behoeften",
     addLabel: "Voeg nog een doelgroep toe",
     structured: "doelgroep",
+    minAnswers: 5,
     steps: [2, 3],
   },
   {
@@ -46,6 +47,7 @@ export const SESSION_ROUNDS: SessionRoundDef[] = [
     assignment: "Wat zou het Haags Verhaal kunnen aanbieden? Beschrijf je idee: voor wie, wat er gebeurt en waarom het interessant is. Eén idee per bijdrage.",
     inputLabel: "Jouw idee",
     addLabel: "Voeg nog een idee toe",
+    linkToRound: 2,
     steps: [4],
   },
   {
@@ -71,9 +73,11 @@ export const SESSION_ROUNDS: SessionRoundDef[] = [
     number: 5,
     title: "Kansen en bedreigingen",
     minutes: 15,
-    assignment: "Kies een idee. Wat maakt het kansrijk, en wat kan het lastig maken? Noem een kans, bedreiging of vraag.",
+    assignment: "Wat maakt je ideeën kansrijk, en wat kan ze lastig maken? Voeg per idee een kans, bedreiging of vraag toe.",
     inputLabel: "Kans, bedreiging of vraag",
     addLabel: "Voeg nog een kans of bedreiging toe",
+    structured: "kans",
+    linkToRound: 3,
     steps: [5],
   },
   {

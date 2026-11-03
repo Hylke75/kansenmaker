@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CircleCheck, Clock, Lock, LogOut, ThumbsUp } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Logo } from "@/components/km/logo";
-import { SessionRound, RoundArrows, RoundProgressBar, useViewRound } from "@/components/km/session-round";
+import { SessionRound, RoundArrows, RoundProgressBar, maxReachableRound, useViewRound } from "@/components/km/session-round";
 import { EmptyState } from "@/components/km/empty-state";
 import { AnswerPanel } from "@/components/km/answer-panel";
 import { RoundExplanation, SessionIntro } from "@/components/km/round-explanation";
@@ -98,8 +98,17 @@ function Room({ sessionId }: { sessionId: string }) {
   const session = state.sessions.find((s) => s.id === sessionId)!;
   const allowVoting = state.projects.find((p) => p.id === session.projectId)?.settings.allowVoting ?? true;
   const selfPaced = session.selfPaced;
-  const [view, setView] = useViewRound(selfPaced ? 1 : session.activeRound, !selfPaced);
+  const [view, setRound] = useViewRound(selfPaced ? 1 : session.activeRound, !selfPaced);
   const round = SESSION_ROUNDS[view - 1];
+  const myAll = state.sessionAnswers.filter((a) => a.sessionId === session.id && a.authorId === currentUser.id);
+  const countFor = (n: number) => myAll.filter((a) => a.round === n).length;
+  const maxRound = maxReachableRound(SESSION_ROUNDS, countFor);
+  const gate = SESSION_ROUNDS[maxRound - 1];
+  const blocked =
+    view >= maxRound && gate?.minAnswers && countFor(gate.number) < gate.minAnswers
+      ? `Vul eerst minimaal ${gate.minAnswers} doelgroepen in (ronde ${gate.number}) om verder te gaan.`
+      : undefined;
+  const setView = (n: number) => setRound(Math.min(n, maxRound));
   const [voteError, setVoteError] = React.useState<string>();
 
   const header = (
@@ -150,8 +159,9 @@ function Room({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const myAll = state.sessionAnswers.filter((a) => a.sessionId === session.id && a.authorId === currentUser.id);
   const mine = myAll.filter((a) => a.round === round.number);
+  const parents = round.linkToRound ? myAll.filter((a) => a.round === round.linkToRound) : undefined;
+  const grandparents = round.linkToRound === 3 ? myAll.filter((a) => a.round === 2) : undefined;
   const votable = answersForRound(state.sessionAnswers, session.id, round.number).filter((a) => !a.hidden);
   const myVotes = votable.filter((a) => a.votes.includes(currentUser.id)).length;
   const next = SESSION_ROUNDS[view];
@@ -170,7 +180,7 @@ function Room({ sessionId }: { sessionId: string }) {
       {header}
       <div className="flex flex-col gap-8">
         <SessionIntro defaultOpen={view === 1 && myAll.length === 0} />
-        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={selfPaced ? undefined : session.activeRound} onSelect={setView} />
+        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={selfPaced ? undefined : session.activeRound} maxRound={maxRound} onSelect={setView} />
         <div aria-live="polite">
           <SessionRound round={round} total={SESSION_ROUNDS.length} />
           {!selfPaced && view !== session.activeRound && (
@@ -232,15 +242,21 @@ function Room({ sessionId }: { sessionId: string }) {
             key={round.number}
             round={round}
             answers={mine}
+            parents={parents}
+            grandparents={grandparents}
+            onGoto={setView}
             onNext={next ? () => setView(next.number) : undefined}
-            onSubmit={async (text) =>
-              !!(await notify.after(addSessionAnswer(session.id, round.number, text), selfPaced ? "Je antwoord is opgeslagen" : "Verstuurd naar de begeleider"))
+            onSubmit={async (text, parentId) =>
+              !!(await notify.after(
+                addSessionAnswer(session.id, round.number, text, parentId),
+                selfPaced ? "Je antwoord is opgeslagen" : "Verstuurd naar de begeleider",
+              ))
             }
             onSave={async (id, text) => !!(await notify.after(updateSessionAnswer(id, text), "Je antwoord is bijgewerkt"))}
           />
         )}
 
-        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={setView} className="border-t border-km-line pt-6" />
+        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={setView} blocked={blocked} className="border-t border-km-line pt-6" />
       </div>
     </>
   );

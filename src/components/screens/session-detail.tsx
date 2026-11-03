@@ -10,6 +10,7 @@ import { NotInProject, RequireProject } from "@/components/km/guards";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { SessionInvite } from "@/components/km/session-invite";
 import { AnswerToIdea } from "@/components/km/answer-to-idea";
+import { answerContext } from "@/components/km/answer-panel";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
@@ -182,6 +183,7 @@ function Inner({ id }: { id: string }) {
                           {list.map((a) => (
                             <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-white p-3 ring-1 ring-km-line sm:flex-row sm:items-start sm:justify-between">
                               <span className="flex flex-col items-start">
+                                {answerContext(a, answers) && <span className="text-sm font-semibold text-km-muted">{answerContext(a, answers)}</span>}
                                 <span className="whitespace-pre-line">
                                   {a.text} <span className="text-sm text-km-muted">— {authorName(a, userName)}</span>
                                 </span>

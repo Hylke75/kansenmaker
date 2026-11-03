@@ -58,11 +58,14 @@ export function RoundProgressBar({
   rounds,
   view,
   active,
+  maxRound,
   onSelect,
 }: {
   rounds: SessionRoundDef[];
   view: number;
   active?: number;
+  /** Hoogste ronde die nu bereikbaar is (verplichte rondes eerst afmaken) */
+  maxRound?: number;
   onSelect: (n: number) => void;
 }) {
   const total = rounds.length;
@@ -90,15 +93,18 @@ export function RoundProgressBar({
         {rounds.map((r) => {
           const isView = r.number === view;
           const isActive = r.number === active;
+          const locked = maxRound !== undefined && r.number > maxRound;
           return (
             <li key={r.number}>
               <button
                 type="button"
+                disabled={locked}
                 onClick={() => onSelect(r.number)}
                 aria-current={isView ? "step" : undefined}
                 className={cn(
                   "flex min-h-11 w-full flex-col items-center justify-start gap-1 rounded-lg px-1 py-1.5 text-center text-xs leading-tight",
                   isView ? "bg-km-green text-white" : "text-km-text hover:bg-km-softgreen",
+                  locked && "cursor-not-allowed opacity-50 hover:bg-transparent",
                 )}
               >
                 <span className="font-bold">
@@ -113,6 +119,7 @@ export function RoundProgressBar({
                     Nu<span className="sr-only">: hier is de begeleider</span>
                   </span>
                 )}
+                {locked && <span className="sr-only"> (nog niet beschikbaar)</span>}
               </button>
             </li>
           );
@@ -128,16 +135,21 @@ export function RoundArrows({
   view,
   onSelect,
   className,
+  blocked,
 }: {
   rounds: SessionRoundDef[];
   view: number;
   onSelect: (n: number) => void;
   className?: string;
+  /** Uitleg waarom je nog niet verder kunt (knop ‘Volgende’ uitgeschakeld) */
+  blocked?: string;
 }) {
   const prev = rounds[view - 2];
   const next = rounds[view];
   return (
-    <div className={cn("flex items-stretch justify-between gap-3", className)}>
+    <div className={cn("flex flex-col gap-3", className)}>
+      {next && blocked && <p className="text-right text-sm font-semibold text-km-muted">{blocked}</p>}
+    <div className="flex items-stretch justify-between gap-3">
       {prev ? (
         <Button type="button" variant="outline" size="lg" onClick={() => onSelect(prev.number)} className="min-w-0">
           <ArrowLeft aria-hidden />
@@ -150,7 +162,7 @@ export function RoundArrows({
         <span />
       )}
       {next ? (
-        <Button type="button" variant="outline" size="lg" onClick={() => onSelect(next.number)} className="min-w-0">
+        <Button type="button" variant="outline" size="lg" disabled={!!blocked} onClick={() => onSelect(next.number)} className="min-w-0">
           <span className="truncate">
             Volgende<span className="hidden sm:inline"> ronde</span>
           </span>
@@ -161,7 +173,14 @@ export function RoundArrows({
         <span />
       )}
     </div>
+    </div>
   );
+}
+
+/** Hoogste bereikbare ronde: een ronde met `minAnswers` moet eerst voldoende antwoorden hebben. */
+export function maxReachableRound(rounds: SessionRoundDef[], countFor: (round: number) => number) {
+  const gate = rounds.find((r) => r.minAnswers && countFor(r.number) < r.minAnswers);
+  return gate ? gate.number : rounds.length;
 }
 
 /**

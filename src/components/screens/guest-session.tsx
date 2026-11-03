@@ -6,7 +6,7 @@ import { CircleAlert, CircleCheck, Clock, ThumbsUp } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { SESSION_ROUNDS } from "@/lib/constants";
 import { Logo } from "@/components/km/logo";
-import { SessionRound, RoundArrows, RoundProgressBar, useViewRound } from "@/components/km/session-round";
+import { SessionRound, RoundArrows, RoundProgressBar, maxReachableRound, useViewRound } from "@/components/km/session-round";
 import { EmptyState } from "@/components/km/empty-state";
 import { LoadingState } from "@/components/km/guards";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
@@ -26,7 +26,7 @@ interface GuestState {
   session: { title: string; state: "gepland" | "actief" | "afgesloten"; active_round: number; self_paced: boolean };
   allow_voting: boolean;
   guest: { id: string; name: string } | null;
-  my_answers: { id: string; round: number; text: string; hidden: boolean }[];
+  my_answers: { id: string; round: number; text: string; hidden: boolean; parent_id: string | null }[];
   votable: { id: string; text: string; mine: boolean }[];
 }
 
@@ -179,8 +179,16 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
   const [voteError, setVoteError] = React.useState<string>();
   const db = getSupabase();
   const selfPaced = state.session.self_paced;
-  const [view, setView] = useViewRound(selfPaced ? 1 : state.session.active_round, !selfPaced);
+  const [view, setRound] = useViewRound(selfPaced ? 1 : state.session.active_round, !selfPaced);
   const round = SESSION_ROUNDS[view - 1];
+  const countFor = (n: number) => state.my_answers.filter((a) => a.round === n).length;
+  const maxRound = maxReachableRound(SESSION_ROUNDS, countFor);
+  const gate = SESSION_ROUNDS[maxRound - 1];
+  const blocked =
+    view >= maxRound && gate?.minAnswers && countFor(gate.number) < gate.minAnswers
+      ? `Vul eerst minimaal ${gate.minAnswers} doelgroepen in (ronde ${gate.number}) om verder te gaan.`
+      : undefined;
+  const setView = (n: number) => setRound(Math.min(n, maxRound));
 
   if (state.session.state === "gepland") {
     return (
@@ -212,7 +220,10 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
     );
   }
 
-  const mine = state.my_answers.filter((a) => a.round === round.number);
+  const toOwn = (a: GuestState["my_answers"][number]) => ({ id: a.id, text: a.text, hidden: a.hidden, parentId: a.parent_id ?? undefined });
+  const mine = state.my_answers.filter((a) => a.round === round.number).map(toOwn);
+  const parents = round.linkToRound ? state.my_answers.filter((a) => a.round === round.linkToRound).map(toOwn) : undefined;
+  const grandparents = round.linkToRound === 3 ? state.my_answers.filter((a) => a.round === 2).map(toOwn) : undefined;
   const myVotes = state.votable.filter((v) => v.mine).length;
   const next = SESSION_ROUNDS[view];
 
@@ -221,7 +232,7 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
       <SessionHeader state={state} />
       <div className="flex flex-col gap-8">
         <SessionIntro defaultOpen={view === 1 && state.my_answers.length === 0} />
-        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={selfPaced ? undefined : state.session.active_round} onSelect={setView} />
+        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={selfPaced ? undefined : state.session.active_round} maxRound={maxRound} onSelect={setView} />
         <div aria-live="polite">
           <SessionRound round={round} total={SESSION_ROUNDS.length} />
           {!selfPaced && view !== state.session.active_round && (
@@ -280,9 +291,18 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
             key={round.number}
             round={round}
             answers={mine}
+            parents={parents}
+            grandparents={grandparents}
+            onGoto={setView}
             onNext={next ? () => setView(next.number) : undefined}
-            onSubmit={async (text) => {
-              const { error: err } = await db.rpc("guest_submit_answer", { p_token: token, p_key: guestKey, p_text: text, p_round: round.number });
+            onSubmit={async (text, parentId) => {
+              const { error: err } = await db.rpc("guest_add_answer", {
+                p_token: token,
+                p_key: guestKey,
+                p_text: text,
+                p_round: round.number,
+                p_parent: parentId ?? null,
+              });
               if (err) {
                 notify.error(message(err));
                 return false;
@@ -304,7 +324,7 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
           />
         )}
 
-        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={setView} className="border-t border-km-line pt-6" />
+        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={setView} blocked={blocked} className="border-t border-km-line pt-6" />
       </div>
     </>
   );

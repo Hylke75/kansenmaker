@@ -114,9 +114,9 @@ export type Database = {
         Relationships: [];
       };
       session_answers: {
-        Row: { id: string; project_id: string; session_id: string; round: number; author_id: string | null; text: string; hidden: boolean; idea_id: string | null; guest_id: string | null; created_at: string };
-        Insert: { id?: string; project_id?: string; session_id: string; round: number; author_id?: string | null; text: string; hidden?: boolean; idea_id?: string | null; guest_id?: string | null; created_at?: string };
-        Update: { id?: string; project_id?: string; session_id?: string; round?: number; author_id?: string | null; text?: string; hidden?: boolean; idea_id?: string | null; guest_id?: string | null; created_at?: string };
+        Row: { id: string; project_id: string; session_id: string; round: number; author_id: string | null; text: string; hidden: boolean; idea_id: string | null; guest_id: string | null; parent_id: string | null; created_at: string };
+        Insert: { id?: string; project_id?: string; session_id: string; round: number; author_id?: string | null; text: string; hidden?: boolean; idea_id?: string | null; guest_id?: string | null; parent_id?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; session_id?: string; round?: number; author_id?: string | null; text?: string; hidden?: boolean; idea_id?: string | null; guest_id?: string | null; parent_id?: string | null; created_at?: string };
         Relationships: [];
       };
       session_votes: {
@@ -183,6 +183,7 @@ export type Database = {
       guest_join_session: { Args: { p_token: string; p_name: string }; Returns: { guest_id: string; guest_key: string }[] };
       guest_session_state: { Args: { p_token: string; p_key: string | null }; Returns: Json };
       guest_submit_answer: { Args: { p_token: string; p_key: string; p_text: string; p_round: number }; Returns: string };
+      guest_add_answer: { Args: { p_token: string; p_key: string; p_text: string; p_round: number; p_parent?: string | null }; Returns: string };
       guest_update_answer: { Args: { p_token: string; p_key: string; p_answer: string; p_text: string }; Returns: boolean };
       guest_toggle_vote: { Args: { p_token: string; p_key: string; p_answer: string }; Returns: boolean };
       submission_preview: { Args: { p_token: string }; Returns: { project_name: string | null; valid: boolean; reason: string | null }[] };

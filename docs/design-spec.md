@@ -687,6 +687,18 @@ Teksten (aangeleverd door Haags Verhaal) staan centraal in `src/lib/steps.ts`.
 - **Ronde 2** is gestructureerd: doelgroep + één of meer behoeften per antwoord, opgeslagen als leesbare tekst
   (eerste regel doelgroep, daarna ‘– behoefte’).
 
+## 22. Werksessie: doelgroep → idee → kans/bedreiging
+
+- **Ronde 2:** minimaal **5 doelgroepen** (met behoeften) verplicht (`minAnswers`). Tot dan: voortgang ‘x van minimaal 5’,
+  geen ‘Naar de volgende ronde’, pijl ‘Volgende’ en rondes 3–6 in de voortgangsbalk uitgeschakeld.
+- **Ronde 3:** ideeën per eigen doelgroep (blok met doelgroep + behoeften, ‘Voeg een idee toe’), plus ‘Idee zonder
+  doelgroep’. Opslag: `session_answers.parent_id` → doelgroep-antwoord.
+- **Ronde 5:** per idee een **kans, bedreiging of vraag** (keuzerondjes), ideeën gegroepeerd per doelgroep.
+  Opslag: tekst ‘Kans – …’ met `parent_id` → idee.
+- `parent_id` mag alleen naar een antwoord uit een eerdere ronde van dezelfde sessie (trigger `check_answer_parent`)
+  en kan niet worden gewijzigd. Gasten gebruiken `guest_add_answer(p_token, p_key, p_text, p_round, p_parent)`.
+- Begeleidersscherm en sessieresultaten tonen de context (‘Doelgroep: …’ / ‘Idee: …’).
+
 ## Bijlage: screenshots
 
 Gemaakt tijdens de controle in stap 1 (met de toenmalige voorbeeldgegevens). Alle screenshots kun je zelf genereren met

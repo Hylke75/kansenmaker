@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff, Maximize2, Play, QrCode, ThumbsUp, 
 import { useProjectData, useStore } from "@/lib/store";
 import { AccessDenied, NotInProject, RequireProject } from "@/components/km/guards";
 import { SessionRound, RoundProgress } from "@/components/km/session-round";
+import { answerContext } from "@/components/km/answer-panel";
 import { Timer, useTimer } from "@/components/km/timer";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { SessionInvite } from "@/components/km/session-invite";
@@ -192,6 +193,9 @@ function Inner({ id }: { id: string }) {
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {sorted.map((a) => (
                   <li key={a.id} className={cn("flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-km-line", a.hidden && "bg-km-offwhite ring-km-muted")}>
+                    {answerContext(a, state.sessionAnswers) && (
+                      <p className="text-sm font-semibold text-km-muted">{answerContext(a, state.sessionAnswers)}</p>
+                    )}
                     <p className={cn("whitespace-pre-line", a.hidden && "line-through")}>{a.text}</p>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-km-muted">
                       <span>
@@ -247,6 +251,9 @@ function Inner({ id }: { id: string }) {
             <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {visibleAnswers.map((a) => (
                 <li key={a.id} className="rounded-2xl bg-white p-5 text-xl whitespace-pre-line ring-1 ring-km-line">
+                  {answerContext(a, state.sessionAnswers) && (
+                    <span className="mb-1 block text-base font-semibold text-km-muted">{answerContext(a, state.sessionAnswers)}</span>
+                  )}
                   {a.text}
                   {round.voting && (
                     <span className="mt-2 flex items-center gap-1 text-base font-semibold text-km-green">

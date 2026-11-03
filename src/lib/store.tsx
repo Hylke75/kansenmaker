@@ -269,6 +269,7 @@ async function fetchSessions(pid: string) {
           ...guestVotes.filter((v) => v.answer_id === a.id).map((v) => `gast:${v.guest_id}`),
         ],
         ideaId: a.idea_id ?? undefined,
+        parentId: a.parent_id ?? undefined,
         guestName: a.guest_id ? (guestName.get(a.guest_id) ?? "Gast") : undefined,
       }),
     ),
@@ -942,10 +943,10 @@ function useStoreValue() {
       const { error } = await db.from("session_participants").insert({ session_id: sessionId });
       if (!error) await reloadSessions();
     },
-    addSessionAnswer: (sessionId: string, round: number, text: string) =>
+    addSessionAnswer: (sessionId: string, round: number, text: string, parentId?: string) =>
       run(
         async () => {
-          await must(db.from("session_answers").insert({ session_id: sessionId, round, text: text.trim() }));
+          await must(db.from("session_answers").insert({ session_id: sessionId, round, text: text.trim(), parent_id: parentId ?? null }));
           return true;
         },
         { reload: "sessions" },
