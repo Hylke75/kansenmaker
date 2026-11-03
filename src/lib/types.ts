@@ -185,6 +185,8 @@ export interface SessionAnswer {
   text: string;
   hidden?: boolean;
   votes: string[];
+  /** Omgezet naar dit idee */
+  ideaId?: string;
 }
 
 export interface Session {

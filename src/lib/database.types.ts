@@ -114,9 +114,9 @@ export type Database = {
         Relationships: [];
       };
       session_answers: {
-        Row: { id: string; project_id: string; session_id: string; round: number; author_id: string | null; text: string; hidden: boolean; created_at: string };
-        Insert: { id?: string; project_id?: string; session_id: string; round: number; author_id?: string | null; text: string; hidden?: boolean; created_at?: string };
-        Update: { id?: string; project_id?: string; session_id?: string; round?: number; author_id?: string | null; text?: string; hidden?: boolean; created_at?: string };
+        Row: { id: string; project_id: string; session_id: string; round: number; author_id: string | null; text: string; hidden: boolean; idea_id: string | null; created_at: string };
+        Insert: { id?: string; project_id?: string; session_id: string; round: number; author_id?: string | null; text: string; hidden?: boolean; idea_id?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; session_id?: string; round?: number; author_id?: string | null; text?: string; hidden?: boolean; idea_id?: string | null; created_at?: string };
         Relationships: [];
       };
       session_votes: {
@@ -150,6 +150,7 @@ export type Database = {
       create_project: { Args: { p_name: string; p_description?: string }; Returns: string };
       invitation_preview: { Args: { p_token: string }; Returns: { project_name: string | null; role: string | null; session_title: string | null; valid: boolean; reason: string | null }[] };
       merge_audiences: { Args: { p_source: string; p_target: string }; Returns: undefined };
+      set_assessment: { Args: { p_concept: string; p_question: string; p_value: string | null }; Returns: boolean };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

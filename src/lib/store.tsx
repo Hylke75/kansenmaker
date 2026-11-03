@@ -12,7 +12,7 @@
 import * as React from "react";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase/client";
-import type { Json, Row } from "./database.types";
+import type { Row } from "./database.types";
 import { can, type Permission } from "./permissions";
 import { notify } from "@/components/km/toast";
 import type {
@@ -80,6 +80,25 @@ const FEASIBILITY_COLUMNS: Record<keyof Feasibility, keyof Row<"concepts">> = {
 /* ------------------------------------------------------------------ */
 
 class NoRowsError extends Error {}
+
+type LinkTable = "idea_audiences" | "idea_needs" | "concept_ideas" | "concept_audiences" | "concept_needs";
+
+/** Koppeltabel gelijktrekken met de gewenste set: alleen verschillen toevoegen/verwijderen. */
+async function syncLinks(table: LinkTable, keyCol: string, keyVal: string, otherCol: string, current: string[], desired: string[]) {
+  const db = getSupabase();
+  const add = desired.filter((x) => !current.includes(x));
+  const remove = current.filter((x) => !desired.includes(x));
+  if (remove.length) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamische koppeltabel
+    const { error } = await (db.from(table) as any).delete().eq(keyCol, keyVal).in(otherCol, remove);
+    if (error) throw error;
+  }
+  if (add.length) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamische koppeltabel
+    const { error } = await (db.from(table) as any).insert(add.map((x) => ({ [keyCol]: keyVal, [otherCol]: x })));
+    if (error) throw error;
+  }
+}
 
 /** Begrijpelijke Nederlandse foutmelding. Meldingen uit de database zijn al in het Nederlands. */
 function friendly(err: unknown): string {
@@ -230,6 +249,7 @@ async function fetchSessions(pid: string) {
         text: a.text,
         hidden: a.hidden,
         votes: votes.filter((v) => v.answer_id === a.id).map((v) => v.user_id),
+        ideaId: a.idea_id ?? undefined,
       }),
     ),
   };
@@ -461,6 +481,16 @@ function useStoreValue() {
     }
   }, []);
 
+  // Waarschuwen bij sluiten of herladen zolang er nog iets wordt opgeslagen
+  const pendingWrites = React.useRef(0);
+  React.useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingWrites.current > 0) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
   // Start + reageren op in-/uitloggen
   React.useEffect(() => {
     // Ophalen uit Supabase (extern systeem); setState gebeurt pas na een await.
@@ -516,6 +546,7 @@ function useStoreValue() {
 
   /** Voert een wijziging uit, toont fouten en herlaadt het project. */
   const run = async <T,>(fn: () => Promise<T>, opts: { reload?: "project" | "sessions" | "me" | "none" } = {}): Promise<T | null> => {
+    pendingWrites.current += 1;
     try {
       const result = await fn();
       const reload = opts.reload ?? "project";
@@ -526,6 +557,8 @@ function useStoreValue() {
     } catch (err) {
       notify.error("Dat is niet gelukt", friendly(err));
       return null;
+    } finally {
+      pendingWrites.current -= 1;
     }
   };
   const pid = () => {
@@ -663,13 +696,22 @@ function useStoreValue() {
         await must(db.from("concepts").update(u).eq("id", id).select("id"), { rows: true });
         return true;
       }),
-    setAssessment: (id: string, questionId: string, value: AssessmentValue | undefined) =>
-      run(async () => {
-        const current = stateRef.current.concepts.find((c) => c.id === id)?.assessment ?? {};
-        const next = { ...current, [questionId]: value } as Json;
-        await must(db.from("concepts").update({ assessment: next }).eq("id", id).select("id"), { rows: true });
+    /** Eén stelling van de realiteitstoets: direct zichtbaar, atomair opgeslagen (geen overschrijven bij snel klikken). */
+    setAssessment: (id: string, questionId: string, value: AssessmentValue | undefined) => {
+      setState((s) => ({
+        ...s,
+        concepts: s.concepts.map((c) => (c.id === id ? { ...c, assessment: { ...c.assessment, [questionId]: value } } : c)),
+      }));
+      return run(async () => {
+        const ok = await must(db.rpc("set_assessment", { p_concept: id, p_question: questionId, p_value: value ?? null }));
+        if (!ok) throw new NoRowsError();
         return true;
-      }),
+      }).then(async (r) => {
+        // Bij een fout de echte stand terughalen
+        if (r === null) await loadProject(stateRef.current.currentProjectId);
+        return r;
+      });
+    },
     addRisk: (conceptId: string, risk: Omit<RiskItem, "id">) =>
       run(async () => {
         await must(db.from("risks").insert({ concept_id: conceptId, kind: risk.kind, text: risk.text }));
@@ -712,8 +754,62 @@ function useStoreValue() {
       }),
     updateAction: (id: string, patch: Partial<ActionItem>) =>
       run(async () => {
-        await must(db.from("actions").update({ status: patch.status }).eq("id", id).select("id"), { rows: true });
+        const u: Partial<Row<"actions">> = {};
+        if (patch.status) u.status = patch.status;
+        if (patch.description !== undefined) u.description = patch.description.trim();
+        if (patch.ownerId !== undefined) u.owner_id = patch.ownerId || null;
+        if ("deadline" in patch) u.deadline = patch.deadline || null;
+        await must(db.from("actions").update(u).eq("id", id).select("id"), { rows: true });
         return true;
+      }),
+    removeAction: (id: string) =>
+      run(async () => {
+        await must(db.from("actions").delete().eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    removeResearch: (researchId: string) =>
+      run(async () => {
+        await must(db.from("research_items").delete().eq("id", researchId).select("id"), { rows: true });
+        return true;
+      }),
+
+    /* Koppelingen */
+    setIdeaLinks: (ideaId: string, audienceIds: string[], needIds: string[]) =>
+      run(async () => {
+        const idea = stateRef.current.ideas.find((i) => i.id === ideaId);
+        if (!idea) throw new NoRowsError();
+        await syncLinks("idea_audiences", "idea_id", ideaId, "audience_id", idea.audienceIds, audienceIds);
+        await syncLinks("idea_needs", "idea_id", ideaId, "need_id", idea.needIds, needIds);
+        return true;
+      }),
+    setConceptLinks: (conceptId: string, links: { ideaIds: string[]; audienceIds: string[]; needIds: string[] }) =>
+      run(async () => {
+        const c = stateRef.current.concepts.find((x) => x.id === conceptId);
+        if (!c) throw new NoRowsError();
+        await syncLinks("concept_ideas", "concept_id", conceptId, "idea_id", c.ideaIds, links.ideaIds);
+        await syncLinks("concept_audiences", "concept_id", conceptId, "audience_id", c.audienceIds, links.audienceIds);
+        await syncLinks("concept_needs", "concept_id", conceptId, "need_id", c.needIds, links.needIds);
+        return true;
+      }),
+    addRelation: (ideaId: string, otherId: string) =>
+      run(async () => {
+        await must(db.from("idea_relations").insert({ idea_id: ideaId, related_idea_id: otherId }));
+        return true;
+      }),
+    removeRelation: (ideaId: string, otherId: string) =>
+      run(async () => {
+        const [a, b] = ideaId < otherId ? [ideaId, otherId] : [otherId, ideaId];
+        await must(db.from("idea_relations").delete().eq("idea_id", a).eq("related_idea_id", b).select("idea_id"), { rows: true });
+        return true;
+      }),
+    /** Sessie-antwoord omzetten in een idee (de begeleider wordt auteur; het antwoord verwijst naar het idee). */
+    answerToIdea: (answerId: string, input: { title: string; description: string }) =>
+      run(async () => {
+        const row = await must(
+          db.from("ideas").insert({ project_id: pid(), title: input.title.trim(), description: input.description.trim() }).select("id").single(),
+        );
+        await must(db.from("session_answers").update({ idea_id: row.id }).eq("id", answerId).select("id"), { rows: true });
+        return row.id;
       }),
 
     /* Sessies */

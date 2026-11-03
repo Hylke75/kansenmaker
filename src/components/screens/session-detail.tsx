@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/km/page-header";
 import { NotInProject, RequireProject } from "@/components/km/guards";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { SessionInvite } from "@/components/km/session-invite";
+import { AnswerToIdea } from "@/components/km/answer-to-idea";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { notify } from "@/components/km/toast";
 import { Button } from "@/components/ui/button";
@@ -133,9 +134,12 @@ function Inner({ id }: { id: string }) {
                         </h3>
                         <ul className="flex flex-col gap-2">
                           {list.map((a) => (
-                            <li key={a.id} className="flex items-start justify-between gap-3 rounded-xl bg-white p-3 ring-1 ring-km-line">
-                              <span>
-                                {a.text} <span className="text-sm text-km-muted">— {userName(a.authorId)}</span>
+                            <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-white p-3 ring-1 ring-km-line sm:flex-row sm:items-start sm:justify-between">
+                              <span className="flex flex-col items-start">
+                                <span>
+                                  {a.text} <span className="text-sm text-km-muted">— {userName(a.authorId)}</span>
+                                </span>
+                                <AnswerToIdea answer={a} session={session} />
                               </span>
                               {a.votes.length > 0 && (
                                 <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-km-green">

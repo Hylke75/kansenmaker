@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { LayoutGrid, Lightbulb, List, Plus, StickyNote, ChevronLeft, ChevronRight } from "lucide-react";
+import { Combine, LayoutGrid, Layers, Lightbulb, List, Plus, StickyNote, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/km/empty-state";
 import { RequireProject } from "@/components/km/guards";
 import { STATUS_META, STATUSES, StatusBadge } from "@/components/km/status-badge";
 import { Button } from "@/components/ui/button";
+import { ConceptCreateDialog } from "@/components/km/concept-create-dialog";
 import { pluralize } from "@/lib/format";
 import type { Idea } from "@/lib/types";
 
@@ -35,6 +36,11 @@ function IdeasInner() {
   const [sort, setSort] = React.useState("nieuw");
   const [view, setView] = React.useState<View>("kaarten");
   const [page, setPage] = React.useState(1);
+  const [selecting, setSelecting] = React.useState(false);
+  const [selection, setSelection] = React.useState<string[]>([]);
+  const [combineOpen, setCombineOpen] = React.useState(false);
+  const canCombine = allowed("concepten.beheren");
+  const toggle = (id: string) => setSelection((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
   const listTop = React.useRef<HTMLHeadingElement>(null);
 
   const canModerate = allowed("bijdragen.modereren");
@@ -94,9 +100,25 @@ function IdeasInner() {
         title="Ideeën"
         description="Ideeën verzamelen, aanvullen en combineren. Ieder idee mag nog onaf zijn."
         actions={
-          <PrimaryButton href="/ideeen/nieuw" icon={<Plus aria-hidden />}>
-            Deel een idee
-          </PrimaryButton>
+          <>
+            {canCombine && activeCount > 1 && (
+              <Button
+                variant="outline"
+                aria-pressed={selecting}
+                onClick={() => {
+                  setSelecting((v) => !v);
+                  setSelection([]);
+                  if (view === "muur") setView("kaarten");
+                }}
+              >
+                <Combine aria-hidden />
+                {selecting ? "Stop met selecteren" : "Ideeën combineren"}
+              </Button>
+            )}
+            <PrimaryButton href="/ideeen/nieuw" icon={<Plus aria-hidden />}>
+              Deel een idee
+            </PrimaryButton>
+          </>
         }
       />
 
@@ -175,7 +197,14 @@ function IdeasInner() {
             <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {paged.map((idea) => (
                 <li key={idea.id}>
-                  <IdeaCard idea={idea} audienceNames={audienceNames(idea)} contributionCount={contribCount(idea.id)} />
+                  <IdeaCard
+                    idea={idea}
+                    audienceNames={audienceNames(idea)}
+                    contributionCount={contribCount(idea.id)}
+                    selectable={selecting && !idea.archived && !idea.pending}
+                    selected={selection.includes(idea.id)}
+                    onToggle={() => toggle(idea.id)}
+                  />
                 </li>
               ))}
             </ul>
@@ -183,7 +212,15 @@ function IdeasInner() {
             <ul className="overflow-hidden rounded-2xl border border-km-line">
               {paged.map((idea) => (
                 <li key={idea.id}>
-                  <IdeaCard variant="row" idea={idea} audienceNames={audienceNames(idea)} contributionCount={contribCount(idea.id)} />
+                  <IdeaCard
+                    variant="row"
+                    idea={idea}
+                    audienceNames={audienceNames(idea)}
+                    contributionCount={contribCount(idea.id)}
+                    selectable={selecting && !idea.archived && !idea.pending}
+                    selected={selection.includes(idea.id)}
+                    onToggle={() => toggle(idea.id)}
+                  />
                 </li>
               ))}
             </ul>
@@ -208,6 +245,29 @@ function IdeasInner() {
           )}
         </>
       )}
+      {selecting && (
+        <div
+          role="region"
+          aria-label="Selectie"
+          className="sticky bottom-24 z-20 mt-6 flex flex-col gap-3 rounded-2xl bg-km-green p-4 md:bottom-4 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p aria-live="polite" className="font-semibold">
+            {selection.length === 0
+              ? "Selecteer de ideeën die je wilt combineren."
+              : `${pluralize(selection.length, "idee", "ideeën")} geselecteerd`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white focus-visible:outline-white" onClick={() => setSelection([])} disabled={selection.length === 0}>
+              Wissen
+            </Button>
+            <Button className="focus-visible:outline-white" onClick={() => setCombineOpen(true)} disabled={selection.length === 0}>
+              <Layers aria-hidden />
+              Combineer tot concept
+            </Button>
+          </div>
+        </div>
+      )}
+      <ConceptCreateDialog open={combineOpen} onOpenChange={setCombineOpen} initialIdeaIds={selection} />
     </>
   );
 }

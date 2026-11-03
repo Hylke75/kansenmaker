@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Lightbulb, UserRound } from "lucide-react";
 import type { Concept } from "@/lib/types";
 import { pluralize } from "@/lib/format";
+import { assessmentOutcome } from "./assessment-outcome";
 import { StatusBadge, Tag } from "./status-badge";
 
 interface ConceptCardProps {
@@ -46,10 +47,29 @@ export function ConceptCard({ concept, ownerName, audienceNames, openActions, he
           </dd>
         </div>
       </dl>
+      <AssessmentSummary concept={concept} />
       <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-km-green group-hover:underline">
         Open concept
         <ArrowRight className="size-4" aria-hidden />
       </span>
     </article>
+  );
+}
+
+/** Korte samenvatting van de realiteitstoets: tekst + aantallen, nooit alleen kleur. */
+function AssessmentSummary({ concept }: { concept: Concept }) {
+  const o = assessmentOutcome(concept.assessment);
+  if (o.tone === "leeg") return <p className="mt-3 text-sm text-km-muted">Realiteitstoets: nog niet beoordeeld</p>;
+  const tone =
+    o.tone === "obstakel" ? "text-km-danger" : o.tone === "onbekend" ? "text-km-warning-text" : "text-[#0c5536]";
+  return (
+    <p className="mt-3 text-sm">
+      <span className="text-km-muted">Realiteitstoets: </span>
+      <span className={`font-semibold ${tone}`}>{o.title.toLowerCase()}</span>
+      <span className="block text-km-muted">
+        <span aria-hidden>✓</span> {o.counts.aannemelijk} aannemelijk · <span aria-hidden>?</span> {o.counts.onbekend} onbekend ·{" "}
+        <span aria-hidden>×</span> {o.counts.obstakel} obstakel
+      </span>
+    </p>
   );
 }

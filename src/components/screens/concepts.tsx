@@ -12,6 +12,7 @@ import { ConceptCreateDialog } from "@/components/km/concept-create-dialog";
 import { STATUS_META, STATUSES } from "@/components/km/status-badge";
 import { Button } from "@/components/ui/button";
 import { pluralize } from "@/lib/format";
+import { assessmentOutcome } from "@/components/km/assessment-outcome";
 
 export function ConceptsScreen() {
   return (
@@ -27,13 +28,21 @@ function Inner() {
   const [status, setStatus] = React.useState("alles");
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);
+  const [sort, setSort] = React.useState("kansrijk");
   const canManage = allowed("concepten.beheren");
 
-  const filtered = concepts.filter(
-    (c) =>
-      (status === "alles" || c.status === status) &&
-      `${c.name} ${c.description}`.toLowerCase().includes(query.trim().toLowerCase()),
-  );
+  /** Hoe kansrijk volgens de realiteitstoets: aannemelijk telt mee, obstakels zwaar tegen, onbekend licht tegen. */
+  const score = (c: (typeof concepts)[number]) => {
+    const n = assessmentOutcome(c.assessment).counts;
+    return n.aannemelijk * 2 - n.obstakel * 3 - n.onbekend - n.open * 0.5;
+  };
+  const filtered = concepts
+    .filter(
+      (c) =>
+        (status === "alles" || c.status === status) &&
+        `${c.name} ${c.description}`.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .sort((a, b) => (sort === "az" ? a.name.localeCompare(b.name, "nl") : sort === "kansrijk" ? score(b) - score(a) : 0));
   const active = status !== "alles" || query !== "";
 
   return (
@@ -65,6 +74,19 @@ function Inner() {
         <>
           <FilterBar
             search={{ value: query, onChange: setQuery, label: "Zoek in concepten" }}
+            selects={[
+              {
+                id: "sorteer",
+                label: "Sorteren",
+                value: sort,
+                onChange: setSort,
+                options: [
+                  { value: "kansrijk", label: "Meest kansrijk (realiteitstoets)" },
+                  { value: "nieuw", label: "Nieuwste eerst" },
+                  { value: "az", label: "Naam A–Z" },
+                ],
+              },
+            ]}
             chips={{
               label: "Filter op status",
               value: status,

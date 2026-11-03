@@ -9,6 +9,7 @@ import { SessionRound, RoundProgress } from "@/components/km/session-round";
 import { Timer, useTimer } from "@/components/km/timer";
 import { SessionStateBadge } from "@/components/km/session-state-badge";
 import { SessionInvite } from "@/components/km/session-invite";
+import { AnswerToIdea } from "@/components/km/answer-to-idea";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { EmptyState } from "@/components/km/empty-state";
 import { notify } from "@/components/km/toast";
@@ -197,7 +198,7 @@ function Inner({ id }: { id: string }) {
                         {round.voting && ` · ronde ${a.round}`}
                         {a.hidden && <strong className="ml-2 text-km-danger">Verborgen</strong>}
                       </span>
-                      <span className="flex items-center gap-2">
+                      <span className="flex flex-wrap items-center gap-2">
                         {round.voting && (
                           <span className="inline-flex items-center gap-1 font-semibold text-km-green">
                             <ThumbsUp className="size-4" aria-hidden />
@@ -209,6 +210,7 @@ function Inner({ id }: { id: string }) {
                           {a.hidden ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
                           {a.hidden ? "Tonen" : "Verbergen"}
                         </Button>
+                        <AnswerToIdea answer={a} session={session} />
                       </span>
                     </div>
                   </li>

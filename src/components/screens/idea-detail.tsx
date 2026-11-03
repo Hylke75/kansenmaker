@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Archive, ArchiveRestore, Check, EyeOff, Eye, Layers, MessageSquare, Pencil, PlusCircle } from "lucide-react";
+import { Link2, X, Archive, ArchiveRestore, Check, EyeOff, Eye, Layers, MessageSquare, Pencil, PlusCircle } from "lucide-react";
 import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { StatusBadge, STATUS_META, STATUSES, Tag } from "@/components/km/status-badge";
 import { NotInProject, RequireProject } from "@/components/km/guards";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { ConceptCreateDialog } from "@/components/km/concept-create-dialog";
+import { IdeaLinksDialog } from "@/components/km/link-dialogs";
 import { EmptyState } from "@/components/km/empty-state";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
@@ -32,11 +33,12 @@ export function IdeaDetailScreen({ id }: { id: string }) {
 }
 
 function IdeaDetailInner({ id }: { id: string }) {
-  const { state, currentUser, allowed, project, userName, updateIdea } = useStore();
+  const { state, currentUser, allowed, project, userName, updateIdea, removeRelation } = useStore();
   const { audiences, needs, ideas, concepts } = useProjectData();
   const idea = ideas.find((i) => i.id === id);
   const [editOpen, setEditOpen] = React.useState(false);
   const [conceptOpen, setConceptOpen] = React.useState(false);
+  const [linksOpen, setLinksOpen] = React.useState(false);
 
   const canModerate = allowed("bijdragen.modereren");
   if (!idea || (idea.pending && !canModerate && idea.authorId !== currentUser.id)) {
@@ -46,10 +48,12 @@ function IdeaDetailInner({ id }: { id: string }) {
   const isAuthor = idea.authorId === currentUser.id;
   const canEdit = isAuthor || canModerate;
   const canConcept = allowed("concepten.beheren");
+  const canLink = (isAuthor || canConcept) && !idea.archived;
   const linkedAudiences = audiences.filter((a) => idea.audienceIds.includes(a.id));
   const linkedNeeds = needs.filter((n) => idea.needIds.includes(n.id));
   const linkedConcepts = concepts.filter((c) => c.ideaIds.includes(idea.id));
   const related = ideas.filter((i) => idea.relatedIdeaIds.includes(i.id) && !i.archived);
+  const relatable = ideas.filter((i) => i.id !== idea.id && !i.archived && !i.pending && !idea.relatedIdeaIds.includes(i.id));
   const contributions = state.contributions
     .filter((c) => c.ideaId === idea.id)
     .filter((c) => (!c.hidden && !c.pending) || canModerate || c.authorId === currentUser.id)
@@ -146,7 +150,18 @@ function IdeaDetailInner({ id }: { id: string }) {
               </Select>
             </section>
           )}
-          <SideList title="Behoeften" empty="Nog niet gekoppeld aan een behoefte.">
+          <SideList
+            title="Behoeften"
+            empty="Nog niet gekoppeld aan een behoefte."
+            action={
+              canLink && (
+                <Button variant="ghost" size="sm" onClick={() => setLinksOpen(true)}>
+                  <Link2 className="size-4" aria-hidden />
+                  Koppelen<span className="sr-only"> doelgroepen en behoeften</span>
+                </Button>
+              )
+            }
+          >
             {linkedNeeds.map((n) => (
               <li key={n.id}>
                 <Link href={`/doelgroepen/${n.audienceId}`} className="text-km-green underline underline-offset-4 hover:no-underline">
@@ -167,13 +182,25 @@ function IdeaDetailInner({ id }: { id: string }) {
           </SideList>
           <SideList title="Gerelateerde ideeën" empty="Nog geen gerelateerde ideeën.">
             {related.map((r) => (
-              <li key={r.id}>
-                <Link href={`/ideeen/${r.id}`} className="text-km-green underline underline-offset-4 hover:no-underline">
+              <li key={r.id} className="flex items-start justify-between gap-2">
+                <Link href={`/ideeen/${r.id}`} className="py-2 text-km-green underline underline-offset-4 hover:no-underline">
                   {r.title}
                 </Link>
+                {canLink && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label={`Koppeling met ‘${r.title}’ verwijderen`}
+                    onClick={() => void notify.after(removeRelation(idea.id, r.id), "Koppeling verwijderd")}
+                  >
+                    <X aria-hidden />
+                  </Button>
+                )}
               </li>
             ))}
           </SideList>
+          {canLink && !idea.archived && relatable.length > 0 && <RelateForm ideaId={idea.id} options={relatable} />}
           {canEdit && (
             <div className="border-t border-km-line pt-6">
               {idea.archived ? (
@@ -210,14 +237,18 @@ function IdeaDetailInner({ id }: { id: string }) {
 
       <EditIdeaDialog open={editOpen} onOpenChange={setEditOpen} ideaId={idea.id} />
       <ConceptCreateDialog open={conceptOpen} onOpenChange={setConceptOpen} initialIdeaIds={[idea.id]} />
+      <IdeaLinksDialog ideaId={idea.id} open={linksOpen} onOpenChange={setLinksOpen} />
     </article>
   );
 }
 
-function SideList({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
+function SideList({ title, empty, children, action }: { title: string; empty: string; children: React.ReactNode[]; action?: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-3 text-lg">{title}</h2>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-lg">{title}</h2>
+        {action}
+      </div>
       {children.length === 0 ? <p className="text-sm text-km-muted">{empty}</p> : <ul className="flex flex-col gap-3">{children}</ul>}
     </section>
   );
@@ -407,5 +438,47 @@ function EditIdeaDialog({ open, onOpenChange, ideaId }: { open: boolean; onOpenC
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Een gerelateerd idee koppelen (bijvoorbeeld om later te combineren). */
+function RelateForm({ ideaId, options }: { ideaId: string; options: { id: string; title: string }[] }) {
+  const { addRelation } = useStore();
+  const [other, setOther] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const id = React.useId();
+  return (
+    <form
+      className="-mt-4 flex flex-col gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!other) return;
+        setBusy(true);
+        const ok = await notify.after(addRelation(ideaId, other), "Ideeën aan elkaar gekoppeld");
+        setBusy(false);
+        if (ok) setOther("");
+      }}
+    >
+      <Label htmlFor={id} className="text-sm font-semibold text-km-green">
+        Koppel een gerelateerd idee
+      </Label>
+      <div className="flex gap-2">
+        <Select value={other} onValueChange={setOther}>
+          <SelectTrigger id={id} className="w-full min-w-0">
+            <SelectValue placeholder="Kies een idee" />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((o) => (
+              <SelectItem key={o.id} value={o.id}>
+                {o.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="submit" variant="outline" disabled={!other || busy} className="shrink-0">
+          Koppel
+        </Button>
+      </div>
+    </form>
   );
 }

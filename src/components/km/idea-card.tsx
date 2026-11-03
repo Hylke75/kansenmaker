@@ -12,13 +12,38 @@ interface IdeaCardProps {
   variant?: "card" | "row";
   headingLevel?: "h2" | "h3";
   className?: string;
+  /** Selectiemodus: selectievakje boven de kaart */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
 }
 
 /**
  * IdeaCard — de hele kaart is klikbaar via één link (de titel) met een
  * uitgerekt klikvlak; zo is er één tabstop per kaart.
  */
-export function IdeaCard({ idea, audienceNames, contributionCount = 0, variant = "card", headingLevel: H = "h3", className }: IdeaCardProps) {
+export function IdeaCard({
+  idea,
+  audienceNames,
+  contributionCount = 0,
+  variant = "card",
+  headingLevel: H = "h3",
+  className,
+  selectable,
+  selected,
+  onToggle,
+}: IdeaCardProps) {
+  const select = selectable && (
+    <label
+      className={cn(
+        "relative z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm font-semibold",
+        selected ? "bg-km-green text-white" : "bg-km-softgreen text-km-green",
+      )}
+    >
+      <input type="checkbox" checked={!!selected} onChange={onToggle} className="size-5 accent-km-green" />
+      Selecteer<span className="sr-only"> ‘{idea.title}’</span>
+    </label>
+  );
   const statusEl = idea.archived ? (
     <StatusBadge status="gearchiveerd" />
   ) : idea.pending ? (
@@ -29,7 +54,8 @@ export function IdeaCard({ idea, audienceNames, contributionCount = 0, variant =
 
   if (variant === "row") {
     return (
-      <article className={cn("relative flex flex-col gap-2 border-b border-km-line bg-white px-4 py-4 last:border-b-0 focus-within:bg-km-offwhite hover:bg-km-offwhite sm:flex-row sm:items-center sm:gap-4", className)}>
+      <article className={cn("relative flex flex-col gap-2 border-b border-km-line bg-white px-4 py-4 last:border-b-0 focus-within:bg-km-offwhite hover:bg-km-offwhite sm:flex-row sm:items-center sm:gap-4", selected && "bg-km-softgreen", className)}>
+        {select}
         <H className="min-w-0 flex-1 text-lg">
           <Link href={`/ideeen/${idea.id}`} className="after:absolute after:inset-0 hover:underline focus-visible:outline-none">
             {idea.title}
@@ -54,9 +80,11 @@ export function IdeaCard({ idea, audienceNames, contributionCount = 0, variant =
     <article
       className={cn(
         "group relative flex h-full flex-col rounded-2xl border border-km-line bg-white p-6 transition-shadow focus-within:ring-3 focus-within:ring-km-green hover:shadow-md",
+        selected && "border-km-green ring-2 ring-km-green",
         className,
       )}
     >
+      {select && <div className="mb-3">{select}</div>}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {audienceNames.map((n) => (
           <Tag key={n}>{n}</Tag>

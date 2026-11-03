@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardCheck, ListChecks, Pencil, Plus, Search, Trash2, TriangleAlert, Check } from "lucide-react";
+import { ClipboardCheck, Link2, ListChecks, Pencil, Plus, Search, Trash2, TriangleAlert, Check } from "lucide-react";
 import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { NotInProject, RequireProject } from "@/components/km/guards";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { EmptyState } from "@/components/km/empty-state";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { assessmentOutcome } from "@/components/km/assessment-outcome";
+import { ConceptLinksDialog } from "@/components/km/link-dialogs";
 import { notify } from "@/components/km/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/format";
-import type { ActionStatus, Concept, Feasibility, ResearchStatus, RiskKind, Status } from "@/lib/types";
+import type { ActionItem, ActionStatus, Concept, ResearchItem, Feasibility, ResearchStatus, RiskKind, Status } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
 
@@ -210,6 +211,7 @@ const Empty = ({ children }: { children: React.ReactNode }) => <p className="tex
 function OverviewTab({ concept, canManage }: { concept: Concept; canManage: boolean }) {
   const { audiences, needs, ideas } = useProjectData();
   const [editOpen, setEditOpen] = React.useState(false);
+  const [linksOpen, setLinksOpen] = React.useState(false);
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex flex-col gap-8">
@@ -238,6 +240,12 @@ function OverviewTab({ concept, canManage }: { concept: Concept; canManage: bool
         </div>
       </div>
       <aside className="flex flex-col gap-6" aria-label="Koppelingen">
+        {canManage && (
+          <Button variant="outline" className="self-start" onClick={() => setLinksOpen(true)}>
+            <Link2 aria-hidden />
+            Koppelingen bewerken
+          </Button>
+        )}
         <Section title="Doelgroepen">
           {concept.audienceIds.length === 0 ? (
             <Empty>Geen doelgroep gekoppeld.</Empty>
@@ -279,6 +287,7 @@ function OverviewTab({ concept, canManage }: { concept: Concept; canManage: bool
         </Section>
       </aside>
       <EditOverviewDialog open={editOpen} onOpenChange={setEditOpen} concept={concept} />
+      <ConceptLinksDialog conceptId={concept.id} open={linksOpen} onOpenChange={setLinksOpen} />
     </div>
   );
 }
@@ -511,7 +520,8 @@ function FeasibilityTab({ concept, canManage }: { concept: Concept; canManage: b
 const RESEARCH_LABEL: Record<ResearchStatus, string> = { open: "Nog te doen", bezig: "Bezig", afgerond: "Afgerond" };
 
 function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; canManage: boolean; outcomeTitle: string }) {
-  const { addResearch, updateResearch } = useStore();
+  const { addResearch, updateResearch, removeResearch } = useStore();
+  const [editing, setEditing] = React.useState<ResearchItem | null>(null);
   const [assumption, setAssumption] = React.useState("");
   const [method, setMethod] = React.useState("");
   const [errors, setErrors] = React.useState<string[]>([]);
@@ -581,6 +591,26 @@ function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; c
                 ) : (
                   <span className="font-semibold">{RESEARCH_LABEL[r.status]}</span>
                 )}
+                {canManage && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(r)}>
+                      <Pencil className="size-4" aria-hidden />
+                      Wijzig<span className="sr-only"> ‘{r.assumption}’</span>
+                    </Button>
+                    <ConfirmDialog
+                      title="Onderzoeksvraag verwijderen?"
+                      description={`‘${r.assumption}’ en het eventuele resultaat worden verwijderd.`}
+                      confirmLabel="Verwijderen"
+                      destructive
+                      onConfirm={() => void notify.after(removeResearch(r.id), "Onderzoeksvraag verwijderd")}
+                      trigger={
+                        <Button variant="ghost" size="icon" aria-label={`Verwijder ‘${r.assumption}’`}>
+                          <Trash2 aria-hidden />
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </li>
           ))}
@@ -618,6 +648,7 @@ function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; c
           </Button>
         </form>
       )}
+      <ResearchEditDialog conceptId={concept.id} item={editing} onClose={() => setEditing(null)} />
       <Dialog open={resultFor !== null} onOpenChange={(o) => !o && setResultFor(null)}>
         <DialogContent>
           <DialogHeader>
@@ -659,7 +690,8 @@ function ResearchTab({ concept, canManage, outcomeTitle }: { concept: Concept; c
 const ACTION_LABEL: Record<ActionStatus, string> = { open: "Open", bezig: "Bezig", klaar: "Klaar" };
 
 function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boolean }) {
-  const { state, userName, addAction, updateAction, currentUser } = useStore();
+  const { state, userName, addAction, updateAction, removeAction, currentUser } = useStore();
+  const [editing, setEditing] = React.useState<ActionItem | null>(null);
   const { members } = useProjectData();
   const actions = state.actions.filter((a) => a.conceptId === concept.id).sort((a, b) => (a.deadline ?? "9").localeCompare(b.deadline ?? "9"));
   const [description, setDescription] = React.useState("");
@@ -727,6 +759,25 @@ function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boole
                     Klaar
                   </span>
                 )}
+                {canManage && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setEditing(a)} aria-label={`Wijzig ‘${a.description}’`}>
+                      <Pencil aria-hidden />
+                    </Button>
+                    <ConfirmDialog
+                      title="Actie verwijderen?"
+                      description={`‘${a.description}’ wordt verwijderd.`}
+                      confirmLabel="Verwijderen"
+                      destructive
+                      onConfirm={() => void notify.after(removeAction(a.id), "Actie verwijderd")}
+                      trigger={
+                        <Button variant="ghost" size="icon" aria-label={`Verwijder ‘${a.description}’`}>
+                          <Trash2 aria-hidden />
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
               </li>
             );
           })}
@@ -786,7 +837,130 @@ function ActionsTab({ concept, canManage }: { concept: Concept; canManage: boole
           </Button>
         </form>
       )}
+      <ActionEditDialog item={editing} onClose={() => setEditing(null)} />
     </div>
   );
 }
 
+
+function ResearchEditDialog({ conceptId, item, onClose }: { conceptId: string; item: ResearchItem | null; onClose: () => void }) {
+  return (
+    <Dialog open={item !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Onderzoek bijwerken</DialogTitle>
+          <DialogDescription>{item?.assumption}</DialogDescription>
+        </DialogHeader>
+        {item && <ResearchEditForm conceptId={conceptId} item={item} onDone={onClose} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ResearchEditForm({ conceptId, item, onDone }: { conceptId: string; item: ResearchItem; onDone: () => void }) {
+  const { updateResearch } = useStore();
+  const [method, setMethod] = React.useState(item.method);
+  const [result, setResult] = React.useState(item.result ?? "");
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <form
+      noValidate
+      className="flex flex-col gap-5"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const ok = await notify.after(
+          updateResearch(conceptId, item.id, { method: method.trim(), result: result.trim() || undefined }),
+          "Onderzoek bijgewerkt",
+        );
+        setBusy(false);
+        if (ok) onDone();
+      }}
+    >
+      <FormField label="Methode" optional hint="Bijvoorbeeld vijf gesprekken, een enquête of een kleine proef.">
+        {(p) => <Input {...p} value={method} onChange={(e) => setMethod(e.target.value)} />}
+      </FormField>
+      <FormField label="Resultaat en bewijs" optional hint="Wat hebben we geleerd? Verwijs eventueel naar verslagen.">
+        {(p) => <Textarea {...p} value={result} onChange={(e) => setResult(e.target.value)} rows={4} />}
+      </FormField>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onDone}>
+          Annuleren
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Bezig…" : "Bewaren"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function ActionEditDialog({ item, onClose }: { item: ActionItem | null; onClose: () => void }) {
+  return (
+    <Dialog open={item !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Actie wijzigen</DialogTitle>
+          <DialogDescription>Omschrijving, verantwoordelijke en deadline.</DialogDescription>
+        </DialogHeader>
+        {item && <ActionEditForm item={item} onDone={onClose} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ActionEditForm({ item, onDone }: { item: ActionItem; onDone: () => void }) {
+  const { updateAction, userName } = useStore();
+  const { members } = useProjectData();
+  const [description, setDescription] = React.useState(item.description);
+  const [owner, setOwner] = React.useState(item.ownerId);
+  const [deadline, setDeadline] = React.useState(item.deadline ?? "");
+  const [error, setError] = React.useState<string>();
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <form
+      noValidate
+      className="flex flex-col gap-5"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!description.trim()) return setError("Beschrijf de actie.");
+        setError(undefined);
+        setBusy(true);
+        const ok = await notify.after(updateAction(item.id, { description, ownerId: owner, deadline: deadline || undefined }), "Actie bijgewerkt");
+        setBusy(false);
+        if (ok) onDone();
+      }}
+    >
+      <FormField label="Wat moet er gebeuren?" error={error}>
+        {(p) => <Input {...p} value={description} onChange={(e) => setDescription(e.target.value)} />}
+      </FormField>
+      <FormField label="Verantwoordelijke">
+        {(p) => (
+          <Select value={owner} onValueChange={setOwner}>
+            <SelectTrigger id={p.id} className="w-full">
+              <SelectValue placeholder="Kies iemand" />
+            </SelectTrigger>
+            <SelectContent>
+              {members.map((m) => (
+                <SelectItem key={m.userId} value={m.userId}>
+                  {userName(m.userId)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </FormField>
+      <FormField label="Deadline" optional>
+        {(p) => <Input {...p} type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />}
+      </FormField>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onDone}>
+          Annuleren
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Bezig…" : "Bewaren"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}

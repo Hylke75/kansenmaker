@@ -1,6 +1,6 @@
 # De Kansenmaker — Design- en interactiespecificatie
 
-Haags Verhaal · Stap 1 (interface) en stap 2 (database en rechten) · november 2026
+Haags Verhaal · Stap 1 (interface), stap 2 (database en rechten) en stap 3 (ideeën- en conceptenstroom) · november 2026
 
 > **Status:** de interface is gekoppeld aan **Supabase** (project `kansenmaker`, regio eu-west-1). Gebruikers loggen
 > **wachtwoordloos** in, alle gegevens worden echt opgeslagen en **Row Level Security** in de database dwingt de
@@ -27,6 +27,7 @@ Haags Verhaal · Stap 1 (interface) en stap 2 (database en rechten) · november 
 13. [Aannames en open punten voor de beoordeling](#13-aannames-en-open-punten-voor-de-beoordeling)
 14. [Techniek en ontwikkeling](#14-techniek-en-ontwikkeling)
 15. [Database, rechten, inloggen en testen (stap 2)](#15-database-rechten-inloggen-en-testen-stap-2)
+16. [Ideeën- en conceptenstroom (stap 3)](#16-ideeën-en-conceptenstroom-stap-3)
 
 ---
 
@@ -527,13 +528,53 @@ AI-functies (fase 2/3 van het functioneel ontwerp).
   een tegenproef bevestigt dat een verboden wijziging echt wordt geweigerd.
 - **E2E-test** (`scripts/e2e-supabase.mjs`) tegen de echte database met tijdelijke accounts
   (`e2e-beheer@`, `e2e-begeleider@`, `e2e-deelnemer@`, `e2e-nieuw@kansenmaker.test`, met wachtwoord, alleen voor de
-  test). **14/14 geslaagd:** doorsturen naar inloggen + validatie · project uit database · doelgroep en behoefte
+  test; `E2E_NEW_EMAIL` kiest een ander ‘nieuw’ account voor een herhaalde run). Stap 2: **14/14 geslaagd** (sinds stap 3: 21/21, zie §16.4): doorsturen naar inloggen + validatie · project uit database · doelgroep en behoefte
   blijven na herladen · idee delen in drie stappen · aanvulling + deelnemer zonder statuskeuze en zonder beheer ·
   beheerder ziet bijdrage en maakt concept · realiteitstoets blijft na herladen + onderzoeksvragen · klaar voor proef
   (begeleider fout, beheerder bevestigd) · actie toevoegen/afvinken · sessie plannen + deelnamelink + starten ·
   **live** rondewissel en antwoord tussen twee browsers · nieuwe gebruiker accepteert uitnodiging · uitnodiging
   zonder inloggen / ongeldige link · uitloggen.
 - Testaccounts en testproject zijn na de test **verwijderd**; de database is leeg.
+
+## 16. Ideeën- en conceptenstroom (stap 3)
+
+Stap 3 maakt het **toevoegen, bewerken, koppelen, aanvullen, beoordelen en selecteren** van ideeën en concepten compleet.
+
+### 16.1 Nieuwe interacties
+| Waar | Interactie | Wie |
+|---|---|---|
+| Ideedetail → Behoeften | **Koppelen**: dialoog met doelgroepen en (alleen bijbehorende) behoeften; behoeften van ontkoppelde doelgroepen vallen vanzelf weg | Auteur, redacteur, begeleider, beheerder |
+| Ideedetail → Gerelateerde ideeën | **Koppel een gerelateerd idee** (keuzelijst) en **ontkoppelen** (×). A↔B wordt één keer opgeslagen | Auteur van één van beide ideeën, conceptbeheerders |
+| Ideeënoverzicht | **Ideeën combineren**: selectiemodus met selectievakje per kaart/rij, balk ‘N ideeën geselecteerd’ met **Combineer tot concept** (opent het conceptformulier met de selectie) | Redacteur, begeleider, beheerder |
+| Conceptdetail → Overzicht | **Koppelingen bewerken**: ideeën (min. 1), doelgroepen en behoeften. Ideeën blijven zelfstandig bestaan | Conceptbeheerders |
+| Conceptdetail → Onderzoek | **Wijzig** (methode, resultaat en bewijs) en **verwijderen** (bevestiging) | Conceptbeheerders |
+| Conceptdetail → Acties | **Wijzig** (omschrijving, verantwoordelijke, deadline) en **verwijderen** (bevestiging) | Conceptbeheerders |
+| Conceptenoverzicht | Kaart toont **realiteitstoets-samenvatting** (uitkomst + aantallen ✓ ? ×, tekst en kleur); sorteren op **Meest kansrijk**, nieuwste of naam | Iedereen |
+| Begeleiderscherm en sessieresultaten | **Maak er een idee van**: sessie-antwoord omzetten in een idee (naam en beschrijving vooraf ingevuld, met wie het inbracht); daarna ‘Omgezet naar idee →’ | Beheerder, begeleider van die sessie |
+| Realiteitstoets | Keuze is **direct zichtbaar** en wordt per stelling atomair opgeslagen | Conceptbeheerders |
+| Overal | Waarschuwing bij sluiten/herladen zolang er nog iets wordt opgeslagen | Iedereen |
+
+### 16.2 Database (`supabase/migrations/2026110409*.sql`)
+- `session_answers.idea_id`: verwijzing naar het idee waarin een antwoord is omgezet. Alleen de begeleider van de
+  sessie of een beheerder kan dit zetten, en alleen naar een idee in hetzelfde project; de tekst van het antwoord blijft onveranderd.
+- `idea_relations`: opslag genormaliseerd (kleinste id eerst), zodat een koppeling niet dubbel kan bestaan;
+  koppelen mag door de auteur van één van beide ideeën of een conceptbeheerder.
+- `set_assessment(concept, stelling, waarde)`: werkt één stelling van de realiteitstoets atomair bij
+  (SECURITY INVOKER, dus RLS blijft gelden).
+
+### 16.3 Gevonden en opgelost tijdens het testen
+- **Realiteitstoets overschreef keuzes**: twee snel opeenvolgende keuzes konden elkaar overschrijven, omdat de
+  browser de hele beoordeling las, aanpaste en terugschreef. Nu voegt de database één keuze per keer samen.
+- **Wegnavigeren tijdens opslaan** kon een wijziging afbreken; de app waarschuwt nu bij sluiten/herladen.
+- Op mobiel overlapte de zwevende knop ‘Deel een idee’ de selectiebalk; de balk staat nu hoger.
+
+### 16.4 Tests
+- `supabase/tests/rls_step3_test.sql` (koppelen, normaliseren, dubbele koppeling, niet-auteur, cross-project,
+  antwoord → idee per rol): **alle tests geslaagd**, teruggedraaid.
+- E2E (`scripts/e2e-supabase.mjs`): **21/21 geslaagd**, inclusief 7 nieuwe stappen voor stap 3 en een regressietest
+  waarbij twee keuzes in de realiteitstoets direct na elkaar worden gemaakt en beide na herladen bewaard zijn.
+- Visueel/toegankelijkheid: 72 routecontroles plus selectiemodus en beide koppeldialogen op mobiel en desktop:
+  **0 axe-overtredingen, 0 px overloop**.
 
 ## Bijlage: screenshots
 

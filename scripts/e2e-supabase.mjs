@@ -155,14 +155,20 @@ await check("Beheerder ziet idee en bijdrage van deelnemer, maakt er een concept
 await check("Realiteitstoets wordt opgeslagen en blijft na herladen", async () => {
   const { page } = admin;
   await go(page, `${conceptUrl}/realiteitstoets`);
+  // Twee keuzes direct na elkaar (regressietest: de tweede mag de eerste niet overschrijven)
+  let saves = 0;
+  page.on("response", (r) => r.url().includes("/rpc/set_assessment") && r.ok() && (saves += 1));
   await page.getByRole("group", { name: "Er is een herkenbare behoefte" }).getByText("Aannemelijk").click();
   await page.getByRole("group", { name: "Het concept past bij de missie" }).getByText("Onbekend").click();
   await page.getByText("Er ontbreken nog gegevens").waitFor();
-  await page.waitForLoadState("networkidle");
+  for (let i = 0; i < 50 && saves < 2; i++) await page.waitForTimeout(200);
+  expect(saves >= 2, `slechts ${saves} van 2 keuzes bevestigd door de database`);
   await page.reload({ waitUntil: "networkidle" });
   const g = page.getByRole("group", { name: "Het concept past bij de missie" });
   await g.getByRole("radio", { name: /Onbekend/ }).waitFor({ state: "attached" });
-  expect(await g.getByRole("radio", { name: /Onbekend/ }).isChecked(), "keuze niet bewaard");
+  expect(await g.getByRole("radio", { name: /Onbekend/ }).isChecked(), "keuze missie niet bewaard");
+  const g2 = page.getByRole("group", { name: "Er is een herkenbare behoefte" });
+  expect(await g2.getByRole("radio", { name: /Aannemelijk/ }).isChecked(), "keuze behoefte niet bewaard (overschreven?)");
   await page.getByRole("button", { name: /Maak onderzoeksvragen/ }).click();
   await page.getByRole("link", { name: /Bekijk de onderzoeksvragen/ }).waitFor();
 });
@@ -219,7 +225,117 @@ await check("Live: deelnemer volgt rondewissel en antwoord verschijnt bij begele
   await deelnemer.page.getByLabel("Doelgroep en behoefte").fill(`Live antwoord ${RUN}`);
   await deelnemer.page.getByRole("button", { name: "Verstuur" }).click();
   await deelnemer.page.getByText("Verstuurd naar de begeleider").first().waitFor();
-  await begeleider.page.getByText(`Live antwoord ${RUN}`).waitFor({ timeout: 15000 });
+  await begeleider.page.getByText(`Live antwoord ${RUN}`, { exact: true }).waitFor({ timeout: 15000 });
+});
+
+const IDEA2 = `E2E-tweede idee ${RUN}`;
+
+
+await check("Stap 3: sessie-antwoord omzetten in een idee (begeleider)", async () => {
+  const { page } = begeleider;
+  await page.getByRole("button", { name: /Maak er een idee van/ }).first().click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Naam van het idee").fill(`Uit sessie ${RUN}`);
+  await dlg.getByRole("button", { name: "Idee aanmaken" }).click();
+  await page.getByText("Idee aangemaakt").first().waitFor();
+  await page.getByRole("link", { name: /Omgezet naar idee/ }).first().waitFor();
+  await go(page, "/ideeen");
+  await page.getByText(`Uit sessie ${RUN}`).first().waitFor();
+});
+
+await check("Stap 3: koppelingen van een idee bewerken (blijft na herladen)", async () => {
+  const { page } = admin;
+  await go(page, "/ideeen/nieuw");
+  await page.getByLabel("Hoe noem je jouw idee?").fill(IDEA2);
+  await page.getByLabel("Wat houdt het idee in?").fill("Tweede idee om te combineren en te koppelen.");
+  await page.getByRole("button", { name: "Volgende" }).click();
+  await page.getByRole("button", { name: "Volgende" }).click();
+  await page.getByRole("button", { name: "Deel je idee" }).click();
+  await page.waitForURL(/\/ideeen\/[0-9a-f-]{36}/);
+
+  await page.getByRole("button", { name: /Koppelen doelgroepen en behoeften/ }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByText(AUD, { exact: true }).click();
+  await dlg.getByText("Elkaar ontmoeten", { exact: true }).click();
+  await dlg.getByRole("button", { name: "Bewaren" }).click();
+  await page.getByText("Koppelingen bewaard").first().waitFor();
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("link", { name: "Elkaar ontmoeten" }).waitFor();
+});
+
+await check("Stap 3: gerelateerd idee koppelen en ontkoppelen", async () => {
+  const { page } = admin;
+  await page.getByLabel("Koppel een gerelateerd idee").click();
+  await page.getByRole("option", { name: IDEA, exact: true }).click();
+  await page.getByRole("button", { name: "Koppel", exact: true }).click();
+  await page.getByText("Ideeën aan elkaar gekoppeld").first().waitFor();
+  await go(page, ideaUrl);
+  await page.getByRole("link", { name: IDEA2 }).waitFor();
+  await page.getByRole("button", { name: `Koppeling met ‘${IDEA2}’ verwijderen` }).click();
+  await page.getByText("Koppeling verwijderd").first().waitFor();
+});
+
+await check("Stap 3: twee ideeën selecteren en combineren tot concept", async () => {
+  const { page } = admin;
+  await go(page, "/ideeen");
+  await page.getByRole("button", { name: "Ideeën combineren" }).click();
+  await page.getByRole("checkbox", { name: `Selecteer ‘${IDEA}’` }).check();
+  await page.getByRole("checkbox", { name: `Selecteer ‘${IDEA2}’` }).check();
+  await page.getByText("2 ideeën geselecteerd").waitFor();
+  await page.getByRole("button", { name: "Combineer tot concept" }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Naam van het concept").fill(`Gecombineerd ${RUN}`);
+  await dlg.getByRole("button", { name: "Concept maken" }).click();
+  await page.waitForURL(/\/concepten\/[0-9a-f-]{36}/);
+  await page.getByRole("link", { name: IDEA }).waitFor();
+  await page.getByRole("link", { name: IDEA2 }).waitFor();
+});
+
+await check("Stap 3: koppelingen van een concept bewerken", async () => {
+  const { page } = admin;
+  await page.getByRole("button", { name: "Koppelingen bewerken" }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByRole("checkbox", { name: IDEA2 }).uncheck();
+  await dlg.getByRole("button", { name: "Bewaren" }).click();
+  await page.getByText("Koppelingen bewaard").first().waitFor();
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("link", { name: IDEA }).waitFor();
+  expect((await page.getByRole("link", { name: IDEA2 }).count()) === 0, "ontkoppeld idee nog zichtbaar");
+});
+
+await check("Stap 3: onderzoek en acties wijzigen en verwijderen", async () => {
+  const { page } = admin;
+  const base0 = new URL(page.url()).pathname;
+  await go(page, `${base0}?tab=onderzoek`);
+  await page.getByLabel("Aanname").fill(`Aanname ${RUN}`);
+  await page.getByRole("button", { name: "Toevoegen" }).click();
+  await page.getByText("Onderzoeksvraag toegevoegd").first().waitFor();
+  await page.getByRole("button", { name: `Wijzig ‘Aanname ${RUN}’` }).click();
+  await page.getByRole("dialog").getByLabel("Resultaat en bewijs").fill("Vijf gesprekken: positief.");
+  await page.getByRole("dialog").getByRole("button", { name: "Bewaren" }).click();
+  await page.getByText("Vijf gesprekken: positief.").waitFor();
+  await page.getByRole("button", { name: `Verwijder ‘Aanname ${RUN}’` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Verwijderen" }).click();
+  await page.getByText("Onderzoeksvraag verwijderd").first().waitFor();
+  await go(page, `${base0}?tab=acties`);
+  await page.getByLabel("Wat moet er gebeuren?").fill(`Actie ${RUN}`);
+  await page.getByRole("button", { name: "Actie toevoegen" }).click();
+  await page.getByText("Actie toegewezen aan").first().waitFor();
+  await page.getByRole("button", { name: `Wijzig ‘Actie ${RUN}’` }).click();
+  await page.getByRole("dialog").getByLabel("Wat moet er gebeuren?").fill(`Actie gewijzigd ${RUN}`);
+  await page.getByRole("dialog").getByRole("button", { name: "Bewaren" }).click();
+  await page.getByText(`Actie gewijzigd ${RUN}`).waitFor();
+  await page.getByRole("button", { name: `Verwijder ‘Actie gewijzigd ${RUN}’` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Verwijderen" }).click();
+  await page.getByText("Actie verwijderd").first().waitFor();
+});
+
+await check("Stap 3: conceptkaarten tonen realiteitstoets en sorteren op kansrijk", async () => {
+  const { page } = admin;
+  await go(page, "/concepten");
+  await page.getByText("Realiteitstoets:").first().waitFor();
+  await page.getByText(/aannemelijk · .* onbekend · .* obstakel/).first().waitFor();
+  expect((await page.getByLabel("Sorteren").textContent())?.includes("Meest kansrijk"), "sortering niet standaard kansrijk");
 });
 
 await check("Nieuwe gebruiker: startscherm, uitnodiging accepteren via toegangslink", async () => {
@@ -229,7 +345,7 @@ await check("Nieuwe gebruiker: startscherm, uitnodiging accepteren via toegangsl
   await page.getByRole("button", { name: "Toegangslink" }).click();
   await page.getByRole("button", { name: "Maak toegangslink" }).click();
   const link = await page.locator('input[readonly][value*="/uitnodiging/"]').inputValue();
-  const nieuw = await asUser("e2e-nieuw@kansenmaker.test");
+  const nieuw = await asUser(process.env.E2E_NEW_EMAIL ?? "e2e-nieuw@kansenmaker.test");
   await go(nieuw.page, "/");
   await nieuw.page.getByRole("heading", { name: "Welkom bij De Kansenmaker" }).waitFor();
   await nieuw.page.getByRole("heading", { name: "Hoe heet je?" }).waitFor();
