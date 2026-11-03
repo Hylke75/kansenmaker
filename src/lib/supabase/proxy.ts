@@ -4,7 +4,7 @@ import type { Database } from "@/lib/database.types";
 import { SUPABASE_KEY, SUPABASE_URL } from "./env";
 
 /** Paden die zonder inloggen bereikbaar zijn. */
-const PUBLIC_PATHS = ["/inloggen", "/auth", "/uitnodiging"];
+const PUBLIC_PATHS = ["/inloggen", "/auth", "/uitnodiging", "/doe-mee", "/insturen"];
 
 /**
  * Vernieuwt de sessie (cookies) en stuurt niet-ingelogde bezoekers naar /inloggen.

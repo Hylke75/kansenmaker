@@ -1,5 +1,6 @@
 "use client";
 
+import { authorName } from "@/lib/authors";
 import { useToday } from "@/hooks/use-today";
 import Link from "next/link";
 import { ArrowLeft, Printer } from "lucide-react";
@@ -88,7 +89,7 @@ export function PrintOverview() {
             <tr key={i.id} className="border-b border-km-line align-top">
               <td className="py-2 pr-4 font-semibold">{i.title}</td>
               <td className="py-2 pr-4">{STATUS_META[i.status].label}</td>
-              <td className="py-2">{userName(i.authorId)}</td>
+              <td className="py-2">{authorName(i, userName)}</td>
             </tr>
           ))}
         </tbody>

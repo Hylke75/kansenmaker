@@ -36,9 +36,9 @@ export type Database = {
         Relationships: [];
       };
       ideas: {
-        Row: { id: string; project_id: string; title: string; description: string; problem: string | null; author_id: string | null; status: string; archived: boolean; pending: boolean; created_at: string; updated_at: string };
-        Insert: { id?: string; project_id: string; title: string; description: string; problem?: string | null; author_id?: string | null; status?: string; archived?: boolean; pending?: boolean; created_at?: string; updated_at?: string };
-        Update: { id?: string; project_id?: string; title?: string; description?: string; problem?: string | null; author_id?: string | null; status?: string; archived?: boolean; pending?: boolean; created_at?: string; updated_at?: string };
+        Row: { id: string; project_id: string; title: string; description: string; problem: string | null; author_id: string | null; status: string; archived: boolean; pending: boolean; guest_name: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; project_id: string; title: string; description: string; problem?: string | null; author_id?: string | null; status?: string; archived?: boolean; pending?: boolean; guest_name?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; project_id?: string; title?: string; description?: string; problem?: string | null; author_id?: string | null; status?: string; archived?: boolean; pending?: boolean; guest_name?: string | null; created_at?: string; updated_at?: string };
         Relationships: [];
       };
       idea_audiences: {
@@ -114,9 +114,9 @@ export type Database = {
         Relationships: [];
       };
       session_answers: {
-        Row: { id: string; project_id: string; session_id: string; round: number; author_id: string | null; text: string; hidden: boolean; idea_id: string | null; created_at: string };
-        Insert: { id?: string; project_id?: string; session_id: string; round: number; author_id?: string | null; text: string; hidden?: boolean; idea_id?: string | null; created_at?: string };
-        Update: { id?: string; project_id?: string; session_id?: string; round?: number; author_id?: string | null; text?: string; hidden?: boolean; idea_id?: string | null; created_at?: string };
+        Row: { id: string; project_id: string; session_id: string; round: number; author_id: string | null; text: string; hidden: boolean; idea_id: string | null; guest_id: string | null; created_at: string };
+        Insert: { id?: string; project_id?: string; session_id: string; round: number; author_id?: string | null; text: string; hidden?: boolean; idea_id?: string | null; guest_id?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; session_id?: string; round?: number; author_id?: string | null; text?: string; hidden?: boolean; idea_id?: string | null; guest_id?: string | null; created_at?: string };
         Relationships: [];
       };
       session_votes: {
@@ -132,9 +132,21 @@ export type Database = {
         Relationships: [];
       };
       invitations: {
-        Row: { id: string; project_id: string; token: string; email: string | null; role: string; kind: string; session_id: string | null; expires_at: string; revoked: boolean; created_by: string | null; accepted_by: string | null; accepted_at: string | null; created_at: string };
-        Insert: { id?: string; project_id: string; token?: string; email?: string | null; role?: string; kind: string; session_id?: string | null; expires_at: string; revoked?: boolean; created_by?: string | null; accepted_by?: string | null; accepted_at?: string | null; created_at?: string };
-        Update: { id?: string; project_id?: string; token?: string; email?: string | null; role?: string; kind?: string; session_id?: string | null; expires_at?: string; revoked?: boolean; created_by?: string | null; accepted_by?: string | null; accepted_at?: string | null; created_at?: string };
+        Row: { id: string; project_id: string; token: string; email: string | null; role: string; kind: string; session_id: string | null; expires_at: string; revoked: boolean; created_by: string | null; accepted_by: string | null; accepted_at: string | null; purpose: string; created_at: string };
+        Insert: { id?: string; project_id: string; token?: string; email?: string | null; role?: string; kind: string; session_id?: string | null; expires_at: string; revoked?: boolean; created_by?: string | null; accepted_by?: string | null; accepted_at?: string | null; purpose?: string; created_at?: string };
+        Update: { id?: string; project_id?: string; token?: string; email?: string | null; role?: string; kind?: string; session_id?: string | null; expires_at?: string; revoked?: boolean; created_by?: string | null; accepted_by?: string | null; accepted_at?: string | null; purpose?: string; created_at?: string };
+        Relationships: [];
+      };
+      guests: {
+        Row: { id: string; project_id: string; session_id: string | null; invitation_id: string | null; name: string; key_hash: string; created_at: string };
+        Insert: { id?: string; project_id: string; session_id?: string | null; invitation_id?: string | null; name: string; key_hash: string; created_at?: string };
+        Update: { id?: string; project_id?: string; session_id?: string | null; invitation_id?: string | null; name?: string; key_hash?: string; created_at?: string };
+        Relationships: [];
+      };
+      session_guest_votes: {
+        Row: { answer_id: string; guest_id: string; session_id: string; project_id: string; created_at: string };
+        Insert: { answer_id: string; guest_id: string; session_id: string; project_id: string; created_at?: string };
+        Update: { answer_id?: string; guest_id?: string; session_id?: string; project_id?: string; created_at?: string };
         Relationships: [];
       };
       activities: {
@@ -150,6 +162,12 @@ export type Database = {
       create_project: { Args: { p_name: string; p_description?: string }; Returns: string };
       invitation_preview: { Args: { p_token: string }; Returns: { project_name: string | null; role: string | null; session_title: string | null; valid: boolean; reason: string | null }[] };
       merge_audiences: { Args: { p_source: string; p_target: string }; Returns: undefined };
+      guest_join_session: { Args: { p_token: string; p_name: string }; Returns: { guest_id: string; guest_key: string }[] };
+      guest_session_state: { Args: { p_token: string; p_key: string | null }; Returns: Json };
+      guest_submit_answer: { Args: { p_token: string; p_key: string; p_text: string }; Returns: string };
+      guest_toggle_vote: { Args: { p_token: string; p_key: string; p_answer: string }; Returns: boolean };
+      submission_preview: { Args: { p_token: string }; Returns: { project_name: string | null; valid: boolean; reason: string | null }[] };
+      guest_submit_idea: { Args: { p_token: string; p_name: string; p_title: string; p_description: string; p_problem?: string | null }; Returns: boolean };
       set_assessment: { Args: { p_concept: string; p_question: string; p_value: string | null }; Returns: boolean };
     };
     Enums: { [_ in never]: never };

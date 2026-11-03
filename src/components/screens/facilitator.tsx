@@ -1,5 +1,6 @@
 "use client";
 
+import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Maximize2, Play, QrCode, ThumbsUp, X, CircleCheck } from "lucide-react";
@@ -194,7 +195,7 @@ function Inner({ id }: { id: string }) {
                     <p className={cn(a.hidden && "line-through")}>{a.text}</p>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-km-muted">
                       <span>
-                        {userName(a.authorId)}
+                        {authorName(a, userName)}
                         {round.voting && ` · ronde ${a.round}`}
                         {a.hidden && <strong className="ml-2 text-km-danger">Verborgen</strong>}
                       </span>

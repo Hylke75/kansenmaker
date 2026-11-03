@@ -17,13 +17,15 @@ export function SessionInvite({ sessionId }: { sessionId: string }) {
   const { invitations } = useProjectData();
   const today = useToday() ?? "";
   const [busy, setBusy] = React.useState(false);
-  const active = invitations.find((i) => i.sessionId === sessionId && i.kind === "link" && !i.revoked && (!today || i.expiresAt >= today));
+  const active = invitations.find(
+    (i) => i.sessionId === sessionId && i.kind === "link" && i.purpose !== "inzending" && !i.revoked && (!today || i.expiresAt >= today),
+  );
 
   if (active) {
     return (
       <InviteLink
-        path={`/uitnodiging/${active.token}`}
-        note={`Geldig tot en met ${new Date(active.expiresAt).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}. Deelnemers loggen in met hun e-mailadres en komen daarna direct in de sessie.`}
+        path={`/doe-mee/${active.token}`}
+        note={`Geldig tot en met ${new Date(active.expiresAt).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}. Deelnemers hebben geen account nodig: ze vullen alleen hun naam in. Wie wel een account heeft, kan op die pagina inloggen.`}
       />
     );
   }

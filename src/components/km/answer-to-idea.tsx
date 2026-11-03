@@ -1,5 +1,6 @@
 "use client";
 
+import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, Lightbulb } from "lucide-react";
@@ -55,7 +56,7 @@ export function AnswerToIdea({ answer, session }: { answer: SessionAnswer; sessi
           {open && (
             <AnswerForm
               answer={answer}
-              defaultDescription={`${answer.text}\n\nIngebracht door ${userName(answer.authorId)} tijdens de werksessie ‘${session.title}’.`}
+              defaultDescription={`${answer.text}\n\nIngebracht door ${authorName(answer, userName)} tijdens de werksessie ‘${session.title}’.`}
               onDone={() => setOpen(false)}
             />
           )}

@@ -1,9 +1,10 @@
 "use client";
 
+import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, Check, Download, EyeOff, Eye, FolderPlus, Inbox, Link2, Mail, Pencil, Printer, Trash2, UserPlus } from "lucide-react";
+import { Lightbulb, Copy, Archive, ArchiveRestore, Check, Download, EyeOff, Eye, FolderPlus, Inbox, Link2, Mail, Pencil, Printer, Trash2, UserPlus } from "lucide-react";
 import { useProjectData, useStore } from "@/lib/store";
 import { PageHeader } from "@/components/km/page-header";
 import { AccessDenied, RequireProject } from "@/components/km/guards";
@@ -26,6 +27,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ROLE_LABELS, ROLES } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
+import { useOrigin } from "@/hooks/use-origin";
 import type { Project, ProjectSettings, Role } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
@@ -381,11 +383,20 @@ function UsersTab() {
                   <div className="min-w-0 flex-1">
                     <p className="inline-flex items-center gap-2 font-semibold text-km-green">
                       {inv.kind === "e-mail" ? <Mail className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
-                      {inv.kind === "e-mail" ? inv.email : `Toegangslink${inv.sessionId ? " voor sessie" : ""}`}
+                      {inv.kind === "e-mail"
+                        ? inv.email
+                        : inv.purpose === "inzending"
+                          ? "Inzendlink (ideeën insturen zonder account)"
+                          : `Toegangslink${inv.sessionId ? " voor sessie" : ""}`}
                     </p>
                     <p className="text-sm text-km-muted">
-                      {ROLE_LABELS[inv.role]} · geldig tot {formatDate(inv.expiresAt)}
+                      {inv.purpose === "inzending" ? "Zonder account" : ROLE_LABELS[inv.role]} · geldig tot {formatDate(inv.expiresAt)}
                     </p>
+                    {!inv.revoked && (!today || inv.expiresAt >= today) && (
+                      <CopyLinkButton
+                        path={inv.purpose === "inzending" ? `/insturen/${inv.token}` : inv.sessionId ? `/doe-mee/${inv.token}` : `/uitnodiging/${inv.token}`}
+                      />
+                    )}
                   </div>
                   <span className={cn("text-sm font-semibold", status === "Actief" ? "text-[#0c5536]" : "text-km-muted")}>{status}</span>
                   {status === "Actief" && (
@@ -418,7 +429,7 @@ function UsersTab() {
 function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { role, project, addInvitation } = useStore();
   const allowedRoles: Role[] = role === "beheerder" ? ROLES : ["deelnemer"];
-  const [method, setMethod] = React.useState<"e-mail" | "link">("e-mail");
+  const [method, setMethod] = React.useState<"e-mail" | "link" | "inzending">("e-mail");
   const [email, setEmail] = React.useState("");
   const [inviteRole, setInviteRole] = React.useState<Role>("deelnemer");
   const [days, setDays] = React.useState("14");
@@ -458,12 +469,13 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
     const token = await notify.after(
       addInvitation({
         projectId: project!.id,
-        role: inviteRole,
-        kind: method,
+        role: method === "inzending" ? "deelnemer" : inviteRole,
+        kind: method === "e-mail" ? "e-mail" : "link",
+        purpose: method === "inzending" ? "inzending" : "deelname",
         email: method === "e-mail" ? email.trim().toLowerCase() : undefined,
         expiresAt: expires,
       }),
-      method === "e-mail" ? "Persoonlijke uitnodiging aangemaakt" : "Toegangslink aangemaakt",
+      method === "e-mail" ? "Persoonlijke uitnodiging aangemaakt" : method === "inzending" ? "Inzendlink aangemaakt" : "Toegangslink aangemaakt",
     );
     setBusy(false);
     if (token) setCreated(token);
@@ -474,24 +486,32 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Iemand uitnodigen</DialogTitle>
-          <DialogDescription>Voor ‘{project?.name}’. Uitnodigingen hebben altijd een vervaldatum.</DialogDescription>
+          <DialogDescription>
+            Voor ‘{project?.name}’. Een inzendlink laat mensen zonder account ideeën insturen; alle links hebben een vervaldatum.
+          </DialogDescription>
         </DialogHeader>
         {created ? (
           <div className="flex flex-col gap-4">
             <p className="font-semibold text-km-green">
               {method === "e-mail"
                 ? `De uitnodiging voor ${email.trim().toLowerCase()} is klaar. Er is nog geen e-maildienst gekoppeld: stuur deze link zelf. Alleen dit e-mailadres kan hem gebruiken.`
-                : "De toegangslink is klaar. Iedereen met deze link kan meedoen tot de vervaldatum. Deel hem dus alleen met wie je wilt uitnodigen."}
+                : method === "inzending"
+                  ? "De inzendlink is klaar. Iedereen met deze link kan zonder account ideeën insturen tot de vervaldatum. Ingestuurde ideeën wachten eerst op goedkeuring (Beheer → Inhoud)."
+                  : "De toegangslink is klaar. Iedereen met deze link kan meedoen tot de vervaldatum. Deel hem dus alleen met wie je wilt uitnodigen."}
             </p>
-            <InviteLink path={`/uitnodiging/${created}`} qr={false} note="Deel deze link alleen met de bedoelde persoon of groep." />
+            <InviteLink
+              path={method === "inzending" ? `/insturen/${created}` : `/uitnodiging/${created}`}
+              qr={method === "inzending"}
+              note={method === "inzending" ? "Deel deze link bijvoorbeeld in een nieuwsbrief of op een flyer (QR-code)." : "Deel deze link alleen met de bedoelde persoon of groep."}
+            />
             <DialogFooter>
               <Button onClick={() => onOpenChange(false)}>Klaar</Button>
             </DialogFooter>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-            <div role="group" aria-label="Manier van uitnodigen" className="grid grid-cols-2 gap-2">
-              {(["e-mail", "link"] as const).map((m) => (
+            <div role="group" aria-label="Manier van uitnodigen" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(["e-mail", "link", "inzending"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
@@ -499,8 +519,8 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
                   onClick={() => { setMethod(m); setErrors([]); }}
                   className={cn("flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 font-semibold", method === m ? "border-km-green bg-km-softgreen text-km-green" : "border-km-line text-km-muted")}
                 >
-                  {m === "e-mail" ? <Mail className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
-                  {m === "e-mail" ? "Via e-mail" : "Toegangslink"}
+                  {m === "e-mail" ? <Mail className="size-4" aria-hidden /> : m === "inzending" ? <Lightbulb className="size-4" aria-hidden /> : <Link2 className="size-4" aria-hidden />}
+                  {m === "e-mail" ? "Via e-mail" : m === "inzending" ? "Inzendlink" : "Toegangslink"}
                 </button>
               ))}
             </div>
@@ -511,22 +531,24 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
               </FormField>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Rol" hint={allowedRoles.length === 1 ? "Begeleiders nodigen alleen deelnemers uit." : undefined}>
-                {(p) => (
-                  <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
-                    <SelectTrigger id={p.id} aria-describedby={p["aria-describedby"]} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allowedRoles.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </FormField>
+              {method !== "inzending" && (
+                <FormField label="Rol" hint={allowedRoles.length === 1 ? "Begeleiders nodigen alleen deelnemers uit." : undefined}>
+                  {(p) => (
+                    <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
+                      <SelectTrigger id={p.id} aria-describedby={p["aria-describedby"]} className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowedRoles.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {ROLE_LABELS[r]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FormField>
+              )}
               <FormField label="Geldig">
                 {(p) => (
                   <Select value={days} onValueChange={setDays}>
@@ -547,7 +569,7 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
                 Annuleren
               </Button>
               <Button type="submit" disabled={busy}>
-                {busy ? "Bezig…" : method === "e-mail" ? "Maak persoonlijke uitnodiging" : "Maak toegangslink"}
+                {busy ? "Bezig…" : method === "e-mail" ? "Maak persoonlijke uitnodiging" : method === "inzending" ? "Maak inzendlink" : "Maak toegangslink"}
               </Button>
             </DialogFooter>
           </form>
@@ -621,7 +643,7 @@ function ContentTab() {
                   <Link href={`/ideeen/${i.id}`} className="font-semibold text-km-green underline underline-offset-4">
                     {i.title}
                   </Link>
-                  <p className="text-sm text-km-muted">door {userName(i.authorId)}</p>
+                  <p className="text-sm text-km-muted">door {authorName(i, userName)}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="secondary" onClick={() => void notify.after(updateIdea(i.id, { pending: undefined }), "Idee goedgekeurd")}>
@@ -721,7 +743,7 @@ function SettingsTab() {
               downloadCsv(
                 `kansenmaker-voorbeeld-ideeen-${date}.csv`,
                 ["Titel", "Beschrijving", "Status", "Doelgroepen", "Auteur", "Datum", "Gearchiveerd"],
-                ideas.map((i) => [i.title, i.description, STATUS_META[i.status].label, audienceNames(i.audienceIds), userName(i.authorId), i.createdAt.slice(0, 10), i.archived ? "ja" : "nee"]),
+                ideas.map((i) => [i.title, i.description, STATUS_META[i.status].label, audienceNames(i.audienceIds), authorName(i, userName), i.createdAt.slice(0, 10), i.archived ? "ja" : "nee"]),
               )
             }
           >
@@ -757,5 +779,27 @@ function SettingsTab() {
         </div>
       </section>
     </div>
+  );
+}
+
+/** Link van een bestaande uitnodiging kopiëren. */
+function CopyLinkButton({ path }: { path: string }) {
+  const origin = useOrigin();
+  return (
+    <Button
+      variant="link"
+      className="mt-1 h-auto min-h-11 gap-1 text-sm"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(`${origin}${path}`);
+          notify.success("Link gekopieerd");
+        } catch {
+          notify.error("Kopiëren lukte niet", `${origin}${path}`);
+        }
+      }}
+    >
+      <Copy className="size-4" aria-hidden />
+      Kopieer link
+    </Button>
   );
 }

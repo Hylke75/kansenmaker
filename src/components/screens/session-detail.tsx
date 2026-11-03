@@ -1,5 +1,6 @@
 "use client";
 
+import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
 import { Download, MapPin, Presentation, Users, ThumbsUp } from "lucide-react";
@@ -37,7 +38,7 @@ function Inner({ id }: { id: string }) {
     downloadCsv(
       `kansenmaker-voorbeeld-sessie-${session.id}.csv`,
       ["Ronde", "Bijdrage", "Auteur", "Stemmen"],
-      answers.map((a) => [String(a.round), a.text, userName(a.authorId), String(a.votes.length)]),
+      answers.map((a) => [String(a.round), a.text, authorName(a, userName), String(a.votes.length)]),
     );
 
   return (
@@ -137,7 +138,7 @@ function Inner({ id }: { id: string }) {
                             <li key={a.id} className="flex flex-col gap-2 rounded-xl bg-white p-3 ring-1 ring-km-line sm:flex-row sm:items-start sm:justify-between">
                               <span className="flex flex-col items-start">
                                 <span>
-                                  {a.text} <span className="text-sm text-km-muted">— {userName(a.authorId)}</span>
+                                  {a.text} <span className="text-sm text-km-muted">— {authorName(a, userName)}</span>
                                 </span>
                                 <AnswerToIdea answer={a} session={session} />
                               </span>
@@ -164,9 +165,12 @@ function Inner({ id }: { id: string }) {
           <section>
             <h2 className="mb-3 inline-flex items-center gap-2 text-xl">
               <Users className="size-5" aria-hidden />
-              Deelnemers ({session.participantIds.length})
+              Deelnemers ({session.participantIds.length + (session.guestCount ?? 0)})
             </h2>
-            <p className="mb-2 text-sm text-km-muted">Begeleider: {userName(session.facilitatorId)}</p>
+            <p className="mb-2 text-sm text-km-muted">
+              Begeleider: {userName(session.facilitatorId)}
+              {(session.guestCount ?? 0) > 0 && ` · ${session.guestCount} ${session.guestCount === 1 ? "gast" : "gasten"} via de deelnamelink`}
+            </p>
             {session.participantIds.length === 0 ? (
               <p className="text-km-muted">Nog niemand uitgenodigd.</p>
             ) : (

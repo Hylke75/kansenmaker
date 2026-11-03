@@ -1,5 +1,6 @@
 "use client";
 
+import { authorName } from "@/lib/authors";
 import * as React from "react";
 import Link from "next/link";
 import { Link2, X, Archive, ArchiveRestore, Check, EyeOff, Eye, Layers, MessageSquare, Pencil, PlusCircle } from "lucide-react";
@@ -71,7 +72,7 @@ function IdeaDetailInner({ id }: { id: string }) {
               <Tag key={a.id}>{a.name}</Tag>
             ))}
             <span className="text-sm text-km-muted">
-              Gedeeld door {userName(idea.authorId)} op {formatDate(idea.createdAt)}
+              Gedeeld door {authorName(idea, userName)} op {formatDate(idea.createdAt)}
             </span>
           </>
         }

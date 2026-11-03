@@ -210,7 +210,7 @@ await check("Begeleider plant sessie, maakt deelnamelink en start", async () => 
   await page.waitForURL(/\/sessies\/[0-9a-f-]{36}$/);
   sessionPath = new URL(page.url()).pathname;
   await page.getByRole("button", { name: "Maak deelnamelink en QR-code" }).click();
-  await page.locator('input[readonly][value*="/uitnodiging/"]').waitFor();
+  await page.locator('input[readonly][value*="/doe-mee/"]').waitFor();
   await go(page, `${sessionPath}/begeleiden`);
   await page.getByRole("button", { name: "Start de sessie" }).click();
   await page.getByRole("heading", { name: "Kennismaken en doel" }).waitFor();
@@ -336,6 +336,63 @@ await check("Stap 3: conceptkaarten tonen realiteitstoets en sorteren op kansrij
   await page.getByText("Realiteitstoets:").first().waitFor();
   await page.getByText(/aannemelijk · .* onbekend · .* obstakel/).first().waitFor();
   expect((await page.getByLabel("Sorteren").textContent())?.includes("Meest kansrijk"), "sortering niet standaard kansrijk");
+});
+
+await check("Gast: meedoen aan sessie met alleen de link (geen account), begeleider ziet het live", async () => {
+  await go(begeleider.page, sessionPath);
+  const link = await begeleider.page.locator('input[readonly][value*="/doe-mee/"]').inputValue();
+  await go(begeleider.page, `${sessionPath}/begeleiden`);
+  const gast = await asUser(null);
+  await gast.page.goto(link, { waitUntil: "networkidle" });
+  expect(!gast.page.url().includes("/inloggen"), "gast werd naar inloggen gestuurd");
+  await gast.page.getByRole("button", { name: "Doe mee" }).click();
+  await gast.page.getByText("Vul je naam in.").first().waitFor();
+  await gast.page.getByLabel("Hoe mag de begeleider je noemen?").fill(`Gast ${RUN}`);
+  await gast.page.getByRole("button", { name: "Doe mee" }).click();
+  await gast.page.getByText(`Je doet mee als`).waitFor();
+  await gast.page.getByLabel("Doelgroep en behoefte").fill(`Gastantwoord ${RUN}`);
+  await gast.page.getByRole("button", { name: "Verstuur" }).click();
+  await gast.page.getByText("Verstuurd naar de begeleider").first().waitFor();
+  await begeleider.page.getByText(`Gastantwoord ${RUN}`, { exact: true }).waitFor({ timeout: 15000 });
+  await begeleider.page.getByText(`Gast ${RUN} (gast)`).first().waitFor();
+  // De gast komt niet in de rest van de app
+  await gast.page.goto(base + "/ideeen", { waitUntil: "networkidle" });
+  expect(gast.page.url().includes("/inloggen"), "gast kon de app in zonder inlog");
+  // Herladen: gast blijft aangemeld in deze browser
+  await gast.page.goto(link, { waitUntil: "networkidle" });
+  await gast.page.getByText(`Gastantwoord ${RUN}`).waitFor();
+  await gast.ctx.close();
+});
+
+await check("Inzendlink: idee insturen zonder account, wacht op goedkeuring, beheerder keurt goed", async () => {
+  const { page } = admin;
+  await go(page, "/beheer?tab=gebruikers");
+  await page.getByRole("button", { name: "Uitnodigen" }).click();
+  await page.getByRole("button", { name: "Inzendlink" }).click();
+  await page.getByRole("button", { name: "Maak inzendlink" }).click();
+  const link = await page.locator('input[readonly][value*="/insturen/"]').inputValue();
+  await page.getByRole("button", { name: "Klaar" }).click();
+  const gast = await asUser(null);
+  await gast.page.goto(link, { waitUntil: "networkidle" });
+  expect(!gast.page.url().includes("/inloggen"), "inzendlink vroeg om inlog");
+  await gast.page.getByLabel("Hoe noem je jouw idee?").fill(`Gastidee ${RUN}`);
+  await gast.page.getByLabel("Wat houdt het idee in?").fill("Een idee van iemand zonder account.");
+  await gast.page.getByRole("button", { name: "Volgende" }).click();
+  await gast.page.getByRole("button", { name: "Verstuur je idee" }).click();
+  await gast.page.getByText("Vul je naam in.").first().waitFor();
+  await gast.page.getByLabel("Je naam").fill(`Insturer ${RUN}`);
+  await gast.page.getByRole("button", { name: "Verstuur je idee" }).click();
+  await gast.page.getByText("Bedankt voor je idee!").waitFor();
+  await gast.ctx.close();
+  // Deelnemer ziet het idee nog niet; beheerder wel (wacht op goedkeuring)
+  await go(deelnemer.page, "/ideeen");
+  expect((await deelnemer.page.getByText(`Gastidee ${RUN}`).count()) === 0, "deelnemer ziet niet-goedgekeurd gastidee");
+  await go(page, "/beheer?tab=inhoud");
+  await page.getByText(`door Insturer ${RUN} (gast)`).waitFor();
+  await page.getByRole("listitem").filter({ hasText: `Gastidee ${RUN}` }).getByRole("button", { name: /Goedkeuren/ }).click();
+  await page.getByText("Idee goedgekeurd").first().waitFor();
+  await go(deelnemer.page, "/ideeen");
+  await deelnemer.page.getByText(`Gastidee ${RUN}`).first().waitFor();
 });
 
 await check("Nieuwe gebruiker: startscherm, uitnodiging accepteren via toegangslink", async () => {

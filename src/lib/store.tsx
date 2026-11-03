@@ -220,12 +220,15 @@ export interface NewIdeaInput {
 
 async function fetchSessions(pid: string) {
   const db = getSupabase();
-  const [sessions, participants, answers, votes] = await Promise.all([
+  const [sessions, participants, answers, votes, guestVotes, guests] = await Promise.all([
     must(db.from("sessions").select("*").eq("project_id", pid).order("starts_at")),
     must(db.from("session_participants").select("*").eq("project_id", pid)),
     must(db.from("session_answers").select("*").eq("project_id", pid).order("created_at")),
     must(db.from("session_votes").select("*").eq("project_id", pid)),
+    must(db.from("session_guest_votes").select("answer_id, guest_id").eq("project_id", pid)),
+    must(db.from("guests").select("id, name, session_id").eq("project_id", pid)),
   ]);
+  const guestName = new Map(guests.map((g) => [g.id, g.name]));
   return {
     sessions: sessions.map(
       (s): Session => ({
@@ -237,6 +240,7 @@ async function fetchSessions(pid: string) {
         state: s.state as Session["state"],
         activeRound: s.active_round,
         participantIds: participants.filter((p) => p.session_id === s.id).map((p) => p.user_id),
+        guestCount: guests.filter((g) => g.session_id === s.id).length,
         location: s.location,
       }),
     ),
@@ -248,8 +252,13 @@ async function fetchSessions(pid: string) {
         authorId: a.author_id ?? "",
         text: a.text,
         hidden: a.hidden,
-        votes: votes.filter((v) => v.answer_id === a.id).map((v) => v.user_id),
+        // Stemmen van accounts en van gasten (gasten met voorvoegsel, zodat ze nooit met een gebruikers-id botsen)
+        votes: [
+          ...votes.filter((v) => v.answer_id === a.id).map((v) => v.user_id),
+          ...guestVotes.filter((v) => v.answer_id === a.id).map((v) => `gast:${v.guest_id}`),
+        ],
         ideaId: a.idea_id ?? undefined,
+        guestName: a.guest_id ? (guestName.get(a.guest_id) ?? "Gast") : undefined,
       }),
     ),
   };
@@ -323,6 +332,7 @@ async function fetchProject(pid: string): Promise<ProjectData & { profiles: User
         createdAt: i.created_at,
         archived: i.archived || undefined,
         pending: i.pending || undefined,
+        guestName: i.guest_name ?? undefined,
         relatedIdeaIds: ideaRelations
           .filter((x) => x.idea_id === i.id || x.related_idea_id === i.id)
           .map((x) => (x.idea_id === i.id ? x.related_idea_id : x.idea_id))
@@ -389,6 +399,7 @@ async function fetchProject(pid: string): Promise<ProjectData & { profiles: User
       email: i.email ?? undefined,
       role: i.role as Role,
       kind: i.kind as Invitation["kind"],
+      purpose: i.purpose as Invitation["purpose"],
       expiresAt: i.expires_at.slice(0, 10),
       revoked: i.revoked,
       sessionId: i.session_id ?? undefined,
@@ -524,6 +535,7 @@ function useStoreValue() {
       .on("postgres_changes", { event: "*", schema: "public", table: "sessions", filter: `project_id=eq.${pid}` }, schedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "session_answers", filter: `project_id=eq.${pid}` }, schedule)
       .on("postgres_changes", { event: "*", schema: "public", table: "session_votes", filter: `project_id=eq.${pid}` }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "session_guest_votes", filter: `project_id=eq.${pid}` }, schedule)
       .subscribe();
     return () => {
       window.clearTimeout(timer);
@@ -921,6 +933,7 @@ function useStoreValue() {
               email: inv.email ?? null,
               role: inv.role,
               kind: inv.kind,
+              purpose: inv.purpose ?? "deelname",
               session_id: inv.sessionId ?? null,
               expires_at: new Date(`${inv.expiresAt}T23:59:59`).toISOString(),
             })

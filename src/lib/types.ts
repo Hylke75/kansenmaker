@@ -95,6 +95,8 @@ export interface Idea {
   archived?: boolean;
   relatedIdeaIds: string[];
   pending?: boolean;
+  /** Ingestuurd via een inzendlink door iemand zonder account */
+  guestName?: string;
 }
 
 export type RiskKind = "kans" | "bedreiging" | "belemmering";
@@ -187,6 +189,8 @@ export interface SessionAnswer {
   votes: string[];
   /** Omgezet naar dit idee */
   ideaId?: string;
+  /** Ingebracht door een gast (zonder account) */
+  guestName?: string;
 }
 
 export interface Session {
@@ -198,6 +202,8 @@ export interface Session {
   state: SessionState;
   activeRound: number;
   participantIds: string[];
+  /** Aantal gasten (deelname via link, zonder account) */
+  guestCount?: number;
   location: string;
 }
 
@@ -210,6 +216,8 @@ export interface Invitation {
   email?: string;
   role: Role;
   kind: "e-mail" | "link";
+  /** deelname (lid worden / sessie) of inzending (ideeën insturen zonder account) */
+  purpose?: "deelname" | "inzending";
   expiresAt: string;
   revoked: boolean;
   sessionId?: string;

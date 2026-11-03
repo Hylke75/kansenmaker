@@ -28,6 +28,7 @@ Haags Verhaal · Stap 1 (interface), stap 2 (database en rechten) en stap 3 (ide
 14. [Techniek en ontwikkeling](#14-techniek-en-ontwikkeling)
 15. [Database, rechten, inloggen en testen (stap 2)](#15-database-rechten-inloggen-en-testen-stap-2)
 16. [Ideeën- en conceptenstroom (stap 3)](#16-ideeën-en-conceptenstroom-stap-3)
+17. [Deelnemen met alleen een link (gasten)](#17-deelnemen-met-alleen-een-link-gasten)
 
 ---
 
@@ -575,6 +576,38 @@ Stap 3 maakt het **toevoegen, bewerken, koppelen, aanvullen, beoordelen en selec
   waarbij twee keuzes in de realiteitstoets direct na elkaar worden gemaakt en beide na herladen bewaard zijn.
 - Visueel/toegankelijkheid: 72 routecontroles plus selectiemodus en beide koppeldialogen op mobiel en desktop:
   **0 axe-overtredingen, 0 px overloop**.
+
+## 17. Deelnemen met alleen een link (gasten)
+
+**Uitgangspunt:** mensen moeten met alleen een link kunnen deelnemen; al het andere staat achter de inlog.
+
+| Link | Route (openbaar) | Wat kan een gast | Waar maak je hem |
+|---|---|---|---|
+| **Deelnamelink sessie** (ook als QR-code) | `/doe-mee/[token]` | Naam invullen → alleen de actieve opdracht zien, antwoorden versturen, eigen antwoorden zien, in de stemronde max. 3 stemmen | Sessiepagina of begeleiderscherm → *Maak deelnamelink en QR-code* (7 dagen geldig) |
+| **Inzendlink** (ook als QR-code) | `/insturen/[token]` | Idee insturen in twee stappen (idee; naam + optioneel probleem). Ideeën van gasten **wachten altijd op goedkeuring** (Beheer → Inhoud) | Beheer → Gebruikers → *Uitnodigen* → *Inzendlink* (7/14/30 dagen) |
+
+- Wie wél een account heeft, kan op de gastpagina doorklikken naar inloggen (`/uitnodiging/[token]`).
+- De begeleider ziet gastantwoorden **live** met ‘Naam (gast)’ en kan ze verbergen, gebruiken in de stemronde of
+  omzetten in een idee. Gaststemmen tellen mee. De sessiepagina toont het aantal gasten.
+- Een gast blijft in dezelfde browser aangemeld (gastsleutel in localStorage); de sessieruimte ververst elke 3 seconden.
+- Alle andere routes (ideeën, concepten, beheer, …) sturen bezoekers zonder inlog naar `/inloggen`.
+
+**Beveiliging** (`supabase/migrations/20261104100000_guest_participation.sql`):
+- Gasten (rol `anon`) hebben **geen toegang tot tabellen**. Ze kunnen alleen zes functies aanroepen:
+  `guest_join_session`, `guest_session_state`, `guest_submit_answer`, `guest_toggle_vote`, `submission_preview`,
+  `guest_submit_idea`. Die controleren elk het geheime token (bestaat, juiste soort, niet ingetrokken, niet verlopen,
+  project niet gearchiveerd) en voor sessies de gastsleutel (alleen de SHA-256-hash wordt bewaard).
+- Een gast ziet alleen de actieve opdracht, eigen antwoorden en (in de stemronde) de stemopties — geen namen of
+  antwoorden van anderen buiten de stemronde, geen projectinhoud.
+- Limieten: max. 300 gasten per sessie, 60 bijdragen per gast, 3 stemmen; max. 100 gastideeën per project per uur.
+- Een inzendlink geeft nooit lidmaatschap; intrekken in Beheer maakt de link direct ongeldig.
+- Tests: `supabase/tests/guest_test.sql` (gaststemmen, sleutelcontrole, geen tabeltoegang) en e2e (**23/23**):
+  meedoen zonder account, live zichtbaar bij begeleider, geen toegang tot de rest van de app, inzendlink → goedkeuren.
+  Toegankelijkheid gastpagina's (aanmelden, sessieruimte, inzenden, ongeldige link) op mobiel en desktop: 0 axe-overtredingen.
+
+**Online zetten (Vercel):** de site is openbaar bereikbaar zodra in Vercel → Settings → Deployment Protection
+‘Vercel Authentication’ uit staat en de nieuwste deployment naar productie is gezet. De app zelf regelt daarna wie
+wat mag (gasten via links, de rest via inloggen).
 
 ## Bijlage: screenshots
 
