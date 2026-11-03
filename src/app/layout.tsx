@@ -14,7 +14,7 @@ const body = Open_Sans({ variable: "--font-body", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: { default: "De Kansenmaker — Haags Verhaal", template: "%s — De Kansenmaker" },
-  description: "Samen ontdekken we nieuwe mogelijkheden. Prototype met voorbeeldgegevens.",
+  description: "Samen ontdekken we nieuwe mogelijkheden. De Kansenmaker van Haags Verhaal.",
   robots: { index: false, follow: false },
 };
 
