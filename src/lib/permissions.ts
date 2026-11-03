@@ -5,6 +5,7 @@ export type Permission =
   | "idee.toevoegen"
   | "idee.eigenWijzigen"
   | "idee.aanvullen"
+  | "doelgroepen.toevoegen"
   | "bijdragen.modereren"
   | "concepten.beheren"
   | "concepten.klaarVoorProefBevestigen"
@@ -17,6 +18,8 @@ const matrix: Record<Permission, Role[]> = {
   "idee.toevoegen": ["deelnemer", "redacteur", "begeleider", "beheerder"],
   "idee.eigenWijzigen": ["deelnemer", "redacteur", "begeleider", "beheerder"],
   "idee.aanvullen": ["deelnemer", "redacteur", "begeleider", "beheerder"],
+  /** Doelgroepen, behoeften en sterke punten toevoegen (stap 1–3); eigen items wijzigen */
+  "doelgroepen.toevoegen": ["deelnemer", "redacteur", "begeleider", "beheerder"],
   "bijdragen.modereren": ["redacteur", "beheerder"],
   "concepten.beheren": ["redacteur", "begeleider", "beheerder"],
   "concepten.klaarVoorProefBevestigen": ["beheerder"],

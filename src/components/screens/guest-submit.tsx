@@ -6,6 +6,7 @@ import { getSupabase } from "@/lib/supabase/client";
 import { Logo } from "@/components/km/logo";
 import { EmptyState } from "@/components/km/empty-state";
 import { LoadingState } from "@/components/km/guards";
+import { DoubtNote } from "@/components/km/notes";
 import { StepForm } from "@/components/km/step-form";
 import { FormField } from "@/components/km/form-field";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ export function GuestSubmitScreen({ token }: { token: string }) {
             <p className="text-sm font-bold tracking-widest text-km-muted uppercase">{preview.project_name}</p>
             <h1 className="mt-1 text-3xl md:text-4xl">Deel jouw idee</h1>
             <p className="mt-3 text-lg">Je hebt geen account nodig. Je idee mag nog onaf zijn.</p>
+            <DoubtNote as="h2" className="mt-6" />
             <div className="mt-8 rounded-2xl border border-km-line bg-white p-5 md:p-8">
               <SubmitForm key={round} token={token} onDone={() => setDone(true)} />
             </div>

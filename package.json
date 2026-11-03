@@ -9,7 +9,8 @@
     "lint": "eslint",
     "check:visual": "node scripts/visual-check.mjs http://localhost:3000 qa-output",
     "typecheck": "tsc --noEmit",
-    "check:e2e": "node scripts/e2e-supabase.mjs http://localhost:3000"
+    "check:e2e": "node scripts/e2e-supabase.mjs http://localhost:3000",
+    "check:steps": "node scripts/steps-check.mjs http://localhost:3000"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

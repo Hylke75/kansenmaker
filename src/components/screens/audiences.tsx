@@ -35,7 +35,7 @@ function AudiencesInner() {
   const [category, setCategory] = React.useState("alle");
   const [addOpen, setAddOpen] = React.useState(false);
   const [mergeOpen, setMergeOpen] = React.useState(false);
-  const canManage = allowed("concepten.beheren");
+  const canAdd = allowed("doelgroepen.toevoegen");
   const categories = Array.from(new Set(audiences.map((a) => a.category))).sort();
 
   const filtered = audiences.filter(
@@ -51,7 +51,7 @@ function AudiencesInner() {
         title="Doelgroepen"
         description="Voor wie kunnen we iets betekenen, en wat hebben zij nodig?"
         actions={
-          canManage && (
+          canAdd && (
             <>
               {role === "beheerder" && audiences.length > 1 && (
                 <Button variant="outline" onClick={() => setMergeOpen(true)}>
@@ -71,8 +71,8 @@ function AudiencesInner() {
         <EmptyState
           icon={Users}
           title="Nog geen doelgroepen"
-          description={canManage ? "Voeg de eerste doelgroep toe en beschrijf hun behoeften." : "Een redacteur of begeleider voegt hier binnenkort doelgroepen toe."}
-          action={canManage && <Button onClick={() => setAddOpen(true)}>Doelgroep toevoegen</Button>}
+          description={canAdd ? "Voeg de eerste doelgroep toe en beschrijf hun behoeften." : "Hier verschijnen straks de doelgroepen."}
+          action={canAdd && <Button onClick={() => setAddOpen(true)}>Doelgroep toevoegen</Button>}
         />
       ) : (
         <>
@@ -113,7 +113,18 @@ function AudiencesInner() {
 }
 
 /** Toevoegen of bewerken van een doelgroep (drie velden). */
-export function AudienceDialog({ open, onOpenChange, audience }: { open: boolean; onOpenChange: (o: boolean) => void; audience?: Audience }) {
+export function AudienceDialog({
+  open,
+  onOpenChange,
+  audience,
+  stay,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  audience?: Audience;
+  /** Na toevoegen op de huidige pagina blijven (bijv. in stap 2) */
+  stay?: boolean;
+}) {
   const router = useRouter();
   const { addAudience, updateAudience } = useStore();
   const [name, setName] = React.useState("");
@@ -147,7 +158,7 @@ export function AudienceDialog({ open, onOpenChange, audience }: { open: boolean
       const id = await notify.after(addAudience(input), "Doelgroep toegevoegd");
       if (!id) return;
       onOpenChange(false);
-      router.push(`/doelgroepen/${id}`);
+      if (!stay) router.push(`/doelgroepen/${id}`);
     }
   };
 
@@ -156,7 +167,9 @@ export function AudienceDialog({ open, onOpenChange, audience }: { open: boolean
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{audience ? "Doelgroep bewerken" : "Doelgroep toevoegen"}</DialogTitle>
-          <DialogDescription>Behoeften voeg je daarna toe op de pagina van de doelgroep.</DialogDescription>
+          <DialogDescription>
+            {stay ? "Wie zou het Haags Verhaal nog meer kunnen bereiken?" : "Behoeften voeg je daarna toe op de pagina van de doelgroep."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} noValidate className="flex flex-col gap-5">
           <ErrorSummary errors={errors} />

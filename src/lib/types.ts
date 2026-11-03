@@ -58,12 +58,42 @@ export interface Audience {
   name: string;
   description: string;
   category: string;
+  createdBy?: string;
 }
 
 export interface Need {
   id: string;
   audienceId: string;
   description: string;
+  createdBy?: string;
+}
+
+/** Stap 1: een sterk punt van het Haags Verhaal */
+export interface Strength {
+  id: string;
+  text: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+/** Stap 5: kans, bedreiging of open vraag bij een idee */
+export type InsightKind = "kans" | "bedreiging" | "vraag";
+export interface IdeaInsight {
+  id: string;
+  ideaId: string;
+  kind: InsightKind;
+  text: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+/** Stap 6: iemand kiest een idee als kansrijk, met een eerste vervolgstap */
+export interface IdeaPick {
+  id: string;
+  ideaId: string;
+  nextStep: string;
+  createdBy?: string;
+  createdAt: string;
 }
 
 export type ContributionKind = "reactie" | "aanvulling";

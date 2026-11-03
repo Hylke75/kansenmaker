@@ -4,10 +4,10 @@ import type { Database } from "@/lib/database.types";
 import { SUPABASE_KEY, SUPABASE_URL } from "./env";
 
 /** Paden die zonder inloggen bereikbaar zijn. */
-const PUBLIC_PATHS = ["/inloggen", "/auth", "/uitnodiging", "/doe-mee", "/insturen"];
+const PUBLIC_PATHS = ["/welkom", "/hoe-werkt-het", "/inloggen", "/auth", "/uitnodiging", "/doe-mee", "/insturen"];
 
 /**
- * Vernieuwt de sessie (cookies) en stuurt niet-ingelogde bezoekers naar /inloggen.
+ * Vernieuwt de sessie (cookies) en stuurt niet-ingelogde bezoekers naar /welkom (voorpagina) of /inloggen.
  * Dit is een optimistische controle; de echte autorisatie gebeurt in de database (RLS).
  */
 export async function updateSession(request: NextRequest) {
@@ -34,6 +34,15 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 
+  if (!loggedIn && path === "/") {
+    // Nieuwe bezoekers maken eerst kennis met De Kansenmaker.
+    const url = request.nextUrl.clone();
+    url.pathname = "/welkom";
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    return redirect;
+  }
   if (!loggedIn && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/inloggen";

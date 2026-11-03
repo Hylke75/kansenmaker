@@ -8,7 +8,7 @@ interface EmptyStateProps {
   action?: React.ReactNode;
   className?: string;
   /** Kopniveau: standaard h2 */
-  as?: "h2" | "h3";
+  as?: "h2" | "h3" | "h4";
 }
 
 /** EmptyState — vriendelijke uitleg + één vervolgactie, nooit een leeg scherm. */

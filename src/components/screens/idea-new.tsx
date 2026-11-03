@@ -8,6 +8,7 @@ import { StepForm } from "@/components/km/step-form";
 import { FormField } from "@/components/km/form-field";
 import { ConfirmDialog } from "@/components/km/confirm-dialog";
 import { RequireProject } from "@/components/km/guards";
+import { DoubtNote } from "@/components/km/notes";
 import { notify } from "@/components/km/toast";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,15 +18,15 @@ import { Label } from "@/components/ui/label";
 const TITLE_MAX = 80;
 const DESC_MAX = 1000;
 
-export function IdeaNewScreen() {
+export function IdeaNewScreen({ returnTo }: { returnTo?: string }) {
   return (
     <RequireProject>
-      <IdeaNewInner />
+      <IdeaNewInner returnTo={returnTo} />
     </RequireProject>
   );
 }
 
-function IdeaNewInner() {
+function IdeaNewInner({ returnTo }: { returnTo?: string }) {
   const router = useRouter();
   const { project, addIdea } = useStore();
   const { audiences, needs } = useProjectData();
@@ -55,7 +56,8 @@ function IdeaNewInner() {
     set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const dirty = title || description || audienceIds.length || problem;
-  const cancel = () => (dirty ? setConfirmCancel(true) : router.push("/ideeen"));
+  const back = returnTo ?? "/ideeen";
+  const cancel = () => (dirty ? setConfirmCancel(true) : router.push(back));
 
   const [busy, setBusy] = React.useState(false);
   const submit = async () => {
@@ -73,12 +75,17 @@ function IdeaNewInner() {
         : "Je idee is gedeeld",
     );
     setBusy(false);
-    if (id) router.push(`/ideeen/${id}`);
+    if (id) router.push(returnTo ?? `/ideeen/${id}`);
   };
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title="Deel jouw idee" description="In drie korte stappen. Je idee mag nog onaf zijn." back={{ href: "/ideeen", label: "Terug naar ideeën" }} />
+      <PageHeader
+        title="Deel jouw idee"
+        description="Vertel voor wie het bedoeld is, wat er gebeurt en waarom het interessant zou zijn."
+        back={returnTo ? { href: returnTo, label: "Terug naar stap 4" } : { href: "/ideeen", label: "Terug naar ideeën" }}
+      />
+      <DoubtNote className="mb-6" as="h2" />
       <div className="rounded-2xl border border-km-line bg-white p-5 md:p-8">
         <StepForm
           heading="Deel jouw idee"
@@ -195,7 +202,7 @@ function IdeaNewInner() {
         cancelLabel="Verder invullen"
         confirmLabel="Stoppen"
         destructive
-        onConfirm={() => router.push("/ideeen")}
+        onConfirm={() => router.push(back)}
       />
     </div>
   );

@@ -14,6 +14,9 @@ import { IdeaLinksDialog } from "@/components/km/link-dialogs";
 import { EmptyState } from "@/components/km/empty-state";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
 import { notify } from "@/components/km/toast";
+import { SelectedNote } from "@/components/km/notes";
+import { InsightForm, InsightList } from "@/components/km/insights";
+import { MICROCOPY } from "@/lib/steps";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -35,7 +38,7 @@ export function IdeaDetailScreen({ id }: { id: string }) {
 
 function IdeaDetailInner({ id }: { id: string }) {
   const { state, currentUser, allowed, project, userName, updateIdea, removeRelation } = useStore();
-  const { audiences, needs, ideas, concepts } = useProjectData();
+  const { audiences, needs, ideas, concepts, insights } = useProjectData();
   const idea = ideas.find((i) => i.id === id);
   const [editOpen, setEditOpen] = React.useState(false);
   const [conceptOpen, setConceptOpen] = React.useState(false);
@@ -55,6 +58,7 @@ function IdeaDetailInner({ id }: { id: string }) {
   const linkedConcepts = concepts.filter((c) => c.ideaIds.includes(idea.id));
   const related = ideas.filter((i) => idea.relatedIdeaIds.includes(i.id) && !i.archived);
   const relatable = ideas.filter((i) => i.id !== idea.id && !i.archived && !i.pending && !idea.relatedIdeaIds.includes(i.id));
+  const ideaInsights = insights.filter((x) => x.ideaId === idea.id);
   const contributions = state.contributions
     .filter((c) => c.ideaId === idea.id)
     .filter((c) => (!c.hidden && !c.pending) || canModerate || c.authorId === currentUser.id)
@@ -110,6 +114,8 @@ function IdeaDetailInner({ id }: { id: string }) {
         </div>
       )}
 
+      {idea.status === "te-onderzoeken" && !idea.archived && <SelectedNote className="mb-8" />}
+
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-10">
           <section aria-labelledby="beschrijving">
@@ -124,6 +130,26 @@ function IdeaDetailInner({ id }: { id: string }) {
               </div>
             )}
           </section>
+
+          {!idea.pending && (
+            <section aria-labelledby="kansen" className="flex flex-col gap-4">
+              <div>
+                <h2 id="kansen" className="text-2xl">
+                  Kansen, bedreigingen en vragen <span className="text-km-muted">({ideaInsights.length})</span>
+                </h2>
+                <p className="mt-1 text-km-muted">Wat maakt dit idee kansrijk en wat kan het lastig maken?</p>
+              </div>
+              <InsightList insights={ideaInsights} />
+              {!idea.archived && (
+                <details className="rounded-2xl bg-km-softgreen p-5 md:p-6">
+                  <summary className="min-h-11 cursor-pointer content-center font-semibold text-km-green">Voeg een kans, bedreiging of vraag toe</summary>
+                  <div className="mt-4">
+                    <InsightForm ideaId={idea.id} />
+                  </div>
+                </details>
+              )}
+            </section>
+          )}
 
           <Contributions ideaId={idea.id} contributions={contributions} canModerate={canModerate} allowComments={project!.settings.allowComments} requireApproval={project!.settings.requireApproval} archived={!!idea.archived} />
         </div>
@@ -353,6 +379,7 @@ function Contributions({
       ) : (
         <form onSubmit={submit} noValidate className="mt-8 flex flex-col gap-5 rounded-2xl bg-km-softgreen p-5 md:p-6">
           <h3 className="text-xl">Draag bij</h3>
+          <p className="-mt-3">{MICROCOPY.addOn.text}</p>
           <ErrorSummary ref={errorRef} errors={errors} />
           <fieldset>
             <legend className="mb-2 font-semibold text-km-green">Wat voor bijdrage is het?</legend>

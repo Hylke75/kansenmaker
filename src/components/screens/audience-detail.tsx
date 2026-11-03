@@ -24,7 +24,7 @@ export function AudienceDetailScreen({ id }: { id: string }) {
 }
 
 function Inner({ id }: { id: string }) {
-  const { allowed, addNeed, removeNeed } = useStore();
+  const { allowed, addNeed, removeNeed, currentUser } = useStore();
   const { audiences, needs, ideas, concepts } = useProjectData();
   const audience = audiences.find((a) => a.id === id);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -33,6 +33,8 @@ function Inner({ id }: { id: string }) {
   if (!audience) return <NotInProject kind="doelgroep" backHref="/doelgroepen" backLabel="Naar alle doelgroepen" />;
 
   const canManage = allowed("concepten.beheren");
+  const canAdd = allowed("doelgroepen.toevoegen");
+  const canEdit = canManage || (canAdd && audience.createdBy === currentUser.id);
   const myNeeds = needs.filter((n) => n.audienceId === audience.id);
   const myIdeas = ideas.filter((i) => i.audienceIds.includes(audience.id) && !i.archived && !i.pending);
   const myConcepts = concepts.filter((c) => c.audienceIds.includes(audience.id));
@@ -57,7 +59,7 @@ function Inner({ id }: { id: string }) {
           </>
         }
         actions={
-          canManage && (
+          canEdit && (
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil aria-hidden />
               Bewerken
@@ -81,7 +83,7 @@ function Inner({ id }: { id: string }) {
                   <li key={n.id} className="rounded-2xl bg-km-softgreen p-5">
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="text-lg">{n.description}</h3>
-                      {canManage && (
+                      {(canManage || (canAdd && n.createdBy === currentUser.id)) && (
                         <ConfirmDialog
                           title="Behoefte verwijderen?"
                           description={`‘${n.description}’ wordt ook losgekoppeld van ideeën en concepten.`}
@@ -121,7 +123,7 @@ function Inner({ id }: { id: string }) {
               })}
             </ul>
           )}
-          {canManage && (
+          {canAdd && (
             <form onSubmit={add} noValidate className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
               <FormField label="Nieuwe behoefte" error={error} className="flex-1">
                 {(p) => <Input {...p} value={newNeed} onChange={(e) => setNewNeed(e.target.value)} placeholder="Bijvoorbeeld ‘Nieuwe mensen ontmoeten’" />}

@@ -16,6 +16,7 @@ import { useToday } from "@/hooks/use-today";
 import { useRouter } from "next/navigation";
 import { LoadingState } from "@/components/km/guards";
 import { ProfileForm } from "@/components/km/profile-dialog";
+import { StepNav, useStepProgress } from "@/components/screens/step";
 
 export function OverviewScreen() {
   const { project, projectReady } = useStore();
@@ -35,6 +36,43 @@ function NamePrompt() {
       <div className="max-w-md">
         <ProfileForm initialName="" initialOrg={currentUser.organisation ?? ""} save={updateProfile} submitLabel="Naam bewaren" />
       </div>
+    </section>
+  );
+}
+
+/** De zes stappen met eigen voortgang en 'ga verder waar je gebleven bent'. */
+function StepsOverview() {
+  const progress = useStepProgress();
+  const doneCount = progress.filter((p) => p.done).length;
+  const next = progress.find((p) => !p.done);
+  return (
+    <section aria-labelledby="stappen" className="rounded-2xl border-2 border-km-green bg-white p-6 md:p-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 id="stappen" className="text-2xl md:text-3xl">
+            Denk mee in zes stappen
+          </h2>
+          <p className="mt-1 text-lg">
+            {doneCount === 0
+              ? "Van onze sterke punten naar ideeën die een volgende stap verdienen."
+              : doneCount === 6
+                ? "Je hebt alle stappen doorlopen. Je kunt altijd terugkomen om meer toe te voegen."
+                : `Je hebt ${doneCount} van de 6 stappen gedaan. Ga verder waar je gebleven bent.`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant={doneCount === 0 ? "default" : "outline"}>
+            <Link href={next ? `/stappen/${next.step}` : "/stappen/1"}>
+              {doneCount === 0 ? "Begin bij stap 1" : next ? `Verder met stap ${next.step}` : "Bekijk de stappen"}
+              <ArrowRight aria-hidden />
+            </Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/hoe-werkt-het">Hoe werkt het?</Link>
+          </Button>
+        </div>
+      </div>
+      <StepNav className="mt-6" />
     </section>
   );
 }
@@ -78,6 +116,8 @@ function ProjectOverview() {
           </PrimaryButton>
         </div>
       </section>
+
+      <StepsOverview />
 
       <nav aria-label="Onderdelen">
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

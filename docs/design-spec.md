@@ -616,6 +616,36 @@ Stap 3 maakt het **toevoegen, bewerken, koppelen, aanvullen, beoordelen en selec
 ‘Vercel Authentication’ uit staat en de nieuwste deployment naar productie is gezet. De app zelf regelt daarna wie
 wat mag (gasten via links, de rest via inloggen).
 
+## 18. Begeleide route in zes stappen
+
+Teksten (aangeleverd door Haags Verhaal) staan centraal in `src/lib/steps.ts`.
+
+| Route | Toegang | Inhoud |
+|---|---|---|
+| `/welkom` | openbaar | “Samen bouwen aan de toekomst van het Haags Verhaal”, knop **Ik denk mee**. Niet-ingelogde bezoekers van `/` komen hier. |
+| `/hoe-werkt-het` | openbaar | Uitleg en de zes stappen, knop **Begin bij stap 1** (→ inloggen). |
+| `/stappen/1` … `/stappen/6` | ingelogd | Per stap: vraag, intro, “Denk eens na over deze vragen”, “Waarom vragen we dit?”, opdracht met voortgang en de invoer. Stappenbalk bovenaan. |
+| `/stappen/bedankt` | ingelogd | Afsluiting met **Bekijk alle ideeën**, **Voeg nog een idee toe**, **Terug naar het overzicht**. |
+
+| Stap | Invoer | Opslag | “Gedaan” als |
+|---|---|---|---|
+| 1 De kracht van het Haags Verhaal | sterke punten | `strengths` (nieuw) | ≥ 3 eigen |
+| 2 Ontdek nieuwe doelgroepen | doelgroepen | `audiences` | ≥ 1 eigen |
+| 3 Ontdek de behoefte | doelgroep kiezen + behoefte | `needs` (+ `created_by`) | ≥ 1 eigen |
+| 4 Van behoefte naar idee | idee (formulier, keert terug naar stap 4) | `ideas` | ≥ 1 eigen |
+| 5 Onderzoek de mogelijkheden | kans / bedreiging / vraag per idee | `idea_insights` (nieuw) | ≥ 1 eigen |
+| 6 Van idee naar werkelijkheid | ideeën kiezen + eerste vervolgstap | `idea_picks` (nieuw, één per persoon per idee) | ≥ 1 keuze |
+
+- **Rechten:** iedere deelnemer mag nu doelgroepen en behoeften toevoegen (voorheen alleen redacteur+), en eigen items
+  wijzigen/verwijderen; redacteur, begeleider en beheerder mogen alles modereren. `created_by` wordt door een trigger
+  gezet en kan niet worden gewijzigd. Keuzes (stap 6) zijn persoonlijk; iedereen ziet wel hoe vaak een idee is gekozen.
+- **Overzicht:** blok “Denk mee in zes stappen” met eigen voortgang en “Verder met stap n”.
+- **Ideepagina:** sectie “Kansen, bedreigingen en vragen”; bij status *Te onderzoeken* de melding “Dit idee is
+  geselecteerd om verder te onderzoeken…”; bij “Draag bij” de tekst over aanvullen.
+- **Nieuw idee / inzendlink:** blok “Twijfel je of je idee goed genoeg is?”.
+- **Test:** `E2E_PASSWORD=… npm run check:steps` doorloopt alle stappen als deelnemer (axe + screenshots). Vereist een
+  account `e2e-stappen@kansenmaker.test` (rol deelnemer) in een testproject.
+
 ## Bijlage: screenshots
 
 Gemaakt tijdens de controle in stap 1 (met de toenmalige voorbeeldgegevens). Alle screenshots kun je zelf genereren met

@@ -30,9 +30,9 @@ export type Database = {
         Relationships: [];
       };
       needs: {
-        Row: { id: string; project_id: string; audience_id: string; description: string; created_at: string };
-        Insert: { id?: string; project_id?: string; audience_id: string; description: string; created_at?: string };
-        Update: { id?: string; project_id?: string; audience_id?: string; description?: string; created_at?: string };
+        Row: { id: string; project_id: string; audience_id: string; description: string; created_by: string | null; created_at: string };
+        Insert: { id?: string; project_id?: string; audience_id: string; description: string; created_by?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; audience_id?: string; description?: string; created_by?: string | null; created_at?: string };
         Relationships: [];
       };
       ideas: {
@@ -147,6 +147,24 @@ export type Database = {
         Row: { answer_id: string; guest_id: string; session_id: string; project_id: string; created_at: string };
         Insert: { answer_id: string; guest_id: string; session_id: string; project_id: string; created_at?: string };
         Update: { answer_id?: string; guest_id?: string; session_id?: string; project_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      strengths: {
+        Row: { id: string; project_id: string; text: string; created_by: string | null; created_at: string };
+        Insert: { id?: string; project_id: string; text: string; created_by?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; text?: string; created_by?: string | null; created_at?: string };
+        Relationships: [];
+      };
+      idea_insights: {
+        Row: { id: string; project_id: string; idea_id: string; kind: string; text: string; created_by: string | null; created_at: string };
+        Insert: { id?: string; project_id?: string; idea_id: string; kind: string; text: string; created_by?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; idea_id?: string; kind?: string; text?: string; created_by?: string | null; created_at?: string };
+        Relationships: [];
+      };
+      idea_picks: {
+        Row: { id: string; project_id: string; idea_id: string; next_step: string; created_by: string | null; created_at: string };
+        Insert: { id?: string; project_id?: string; idea_id: string; next_step?: string; created_by?: string | null; created_at?: string };
+        Update: { id?: string; project_id?: string; idea_id?: string; next_step?: string; created_by?: string | null; created_at?: string };
         Relationships: [];
       };
       activities: {

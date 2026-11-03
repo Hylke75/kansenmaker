@@ -6,7 +6,7 @@ TABLES = {
  "projects": [("id","string",1),("name","string",0),("description","string",1),("owner_id","string | null",1),("visibility","string",1),("archived","boolean",1),("invite_only","boolean",1),("ideas_visible_immediately","boolean",1),("allow_comments","boolean",1),("allow_voting","boolean",1),("require_approval","boolean",1),("created_at","string",1)],
  "project_members": [("project_id","string",0),("user_id","string",0),("role","string",0),("created_at","string",1)],
  "audiences": [("id","string",1),("project_id","string",0),("name","string",0),("description","string",1),("category","string",1),("created_by","string | null",1),("created_at","string",1)],
- "needs": [("id","string",1),("project_id","string",0),("audience_id","string",0),("description","string",0),("created_at","string",1)],
+ "needs": [("id","string",1),("project_id","string",0),("audience_id","string",0),("description","string",0),("created_by","string | null",1),("created_at","string",1)],
  "ideas": [("id","string",1),("project_id","string",0),("title","string",0),("description","string",0),("problem","string | null",1),("author_id","string | null",1),("status","string",1),("archived","boolean",1),("pending","boolean",1),("guest_name","string | null",1),("created_at","string",1),("updated_at","string",1)],
  "idea_audiences": [("idea_id","string",0),("audience_id","string",0)],
  "idea_needs": [("idea_id","string",0),("need_id","string",0)],
@@ -26,6 +26,9 @@ TABLES = {
  "invitations": [("id","string",1),("project_id","string",0),("token","string",1),("email","string | null",1),("role","string",1),("kind","string",0),("session_id","string | null",1),("expires_at","string",0),("revoked","boolean",1),("created_by","string | null",1),("accepted_by","string | null",1),("accepted_at","string | null",1),("purpose","string",1),("created_at","string",1)],
  "guests": [("id","string",1),("project_id","string",0),("session_id","string | null",1),("invitation_id","string | null",1),("name","string",0),("key_hash","string",0),("created_at","string",1)],
  "session_guest_votes": [("answer_id","string",0),("guest_id","string",0),("session_id","string",0),("project_id","string",0),("created_at","string",1)],
+ "strengths": [("id","string",1),("project_id","string",0),("text","string",0),("created_by","string | null",1),("created_at","string",1)],
+ "idea_insights": [("id","string",1),("project_id","string",1),("idea_id","string",0),("kind","string",0),("text","string",0),("created_by","string | null",1),("created_at","string",1)],
+ "idea_picks": [("id","string",1),("project_id","string",1),("idea_id","string",0),("next_step","string",1),("created_by","string | null",1),("created_at","string",1)],
  "activities": [("id","string",1),("project_id","string",0),("actor_id","string | null",1),("text","string",0),("href","string",0),("created_at","string",1)],
 }
 # Kolommen die door triggers worden gevuld zijn bij insert optioneel

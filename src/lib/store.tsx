@@ -28,6 +28,10 @@ import type {
   Invitation,
   Membership,
   Need,
+  Strength,
+  IdeaInsight,
+  IdeaPick,
+  InsightKind,
   Project,
   ProjectSettings,
   ResearchItem,
@@ -152,6 +156,9 @@ interface ProjectData {
   sessionAnswers: SessionAnswer[];
   invitations: Invitation[];
   activities: Activity[];
+  strengths: Strength[];
+  insights: IdeaInsight[];
+  picks: IdeaPick[];
 }
 
 const EMPTY: ProjectData = {
@@ -166,6 +173,9 @@ const EMPTY: ProjectData = {
   sessionAnswers: [],
   invitations: [],
   activities: [],
+  strengths: [],
+  insights: [],
+  picks: [],
 };
 
 interface State extends ProjectData {
@@ -285,6 +295,9 @@ async function fetchProject(pid: string): Promise<ProjectData & { profiles: User
     invitations,
     activities,
     sessionData,
+    strengths,
+    insights,
+    picks,
   ] = await Promise.all([
     must(db.from("project_members").select("*").eq("project_id", pid)),
     must(db.from("audiences").select("*").eq("project_id", pid).order("name")),
@@ -304,6 +317,9 @@ async function fetchProject(pid: string): Promise<ProjectData & { profiles: User
     must(db.from("invitations").select("*").eq("project_id", pid).order("created_at", { ascending: false })),
     must(db.from("activities").select("*").eq("project_id", pid).order("created_at", { ascending: false }).limit(50)),
     fetchSessions(pid),
+    must(db.from("strengths").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("idea_insights").select("*").eq("project_id", pid).order("created_at")),
+    must(db.from("idea_picks").select("*").eq("project_id", pid).order("created_at")),
   ]);
 
   const memberIds = members.map((m) => m.user_id);
@@ -316,8 +332,29 @@ async function fetchProject(pid: string): Promise<ProjectData & { profiles: User
   return {
     profiles,
     members: members.map((m) => ({ userId: m.user_id, projectId: m.project_id, role: m.role as Role })),
-    audiences: audiences.map((a) => ({ id: a.id, projectId: a.project_id, name: a.name, description: a.description, category: a.category })),
-    needs: needs.map((n) => ({ id: n.id, audienceId: n.audience_id, description: n.description })),
+    audiences: audiences.map((a) => ({
+      id: a.id,
+      projectId: a.project_id,
+      name: a.name,
+      description: a.description,
+      category: a.category,
+      createdBy: a.created_by ?? undefined,
+    })),
+    needs: needs.map((n) => ({ id: n.id, audienceId: n.audience_id, description: n.description, createdBy: n.created_by ?? undefined })),
+    strengths: strengths.map((x) => ({ id: x.id, text: x.text, createdBy: x.created_by ?? undefined, createdAt: x.created_at })),
+    insights: insights
+      .filter((x) => ideaIds.has(x.idea_id))
+      .map((x) => ({
+        id: x.id,
+        ideaId: x.idea_id,
+        kind: x.kind as InsightKind,
+        text: x.text,
+        createdBy: x.created_by ?? undefined,
+        createdAt: x.created_at,
+      })),
+    picks: picks
+      .filter((x) => ideaIds.has(x.idea_id))
+      .map((x) => ({ id: x.id, ideaId: x.idea_id, nextStep: x.next_step, createdBy: x.created_by ?? undefined, createdAt: x.created_at })),
     ideas: ideas.map(
       (i): Idea => ({
         id: i.id,
@@ -677,6 +714,53 @@ function useStoreValue() {
         return true;
       }),
 
+    /* Zes stappen: sterke punten, kansen/bedreigingen per idee, keuzes */
+    addStrength: (text: string) =>
+      run(async () => {
+        await must(db.from("strengths").insert({ project_id: pid(), text: text.trim() }));
+        return true;
+      }),
+    updateStrength: (id: string, text: string) =>
+      run(async () => {
+        await must(db.from("strengths").update({ text: text.trim() }).eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    removeStrength: (id: string) =>
+      run(async () => {
+        await must(db.from("strengths").delete().eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    addInsight: (ideaId: string, kind: InsightKind, text: string) =>
+      run(async () => {
+        await must(db.from("idea_insights").insert({ idea_id: ideaId, kind, text: text.trim() }));
+        return true;
+      }),
+    removeInsight: (id: string) =>
+      run(async () => {
+        await must(db.from("idea_insights").delete().eq("id", id).select("id"), { rows: true });
+        return true;
+      }),
+    /** Idee kiezen (of de vervolgstap van je keuze bijwerken) */
+    pickIdea: (ideaId: string, nextStep: string) =>
+      run(async () => {
+        await must(
+          db
+            .from("idea_picks")
+            .upsert({ idea_id: ideaId, next_step: nextStep.trim(), created_by: stateRef.current.userId }, { onConflict: "idea_id,created_by" })
+            .select("id"),
+          { rows: true },
+        );
+        return true;
+      }),
+    unpickIdea: (ideaId: string) =>
+      run(async () => {
+        await must(
+          db.from("idea_picks").delete().eq("idea_id", ideaId).eq("created_by", stateRef.current.userId ?? "").select("id"),
+          { rows: true },
+        );
+        return true;
+      }),
+
     /* Concepten */
     addConcept: (input: { name: string; description: string; ideaIds: string[] }) =>
       run(async () => {
@@ -1010,7 +1094,10 @@ export function useProjectData() {
       invitations: state.invitations,
       activities: state.activities,
       members: state.members,
+      strengths: state.strengths,
+      insights: state.insights,
+      picks: state.picks,
     }),
-    [state.audiences, state.needs, state.ideas, state.concepts, state.sessions, state.invitations, state.activities, state.members],
+    [state.strengths, state.insights, state.picks, state.audiences, state.needs, state.ideas, state.concepts, state.sessions, state.invitations, state.activities, state.members],
   );
 }
