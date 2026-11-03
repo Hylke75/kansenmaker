@@ -34,10 +34,11 @@ export function Header() {
           <PrototypeSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={`Gebruikersmenu, ingelogd als ${currentUser.name}`}>
-                <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-km-green text-sm font-bold text-white">
+              <Button variant="ghost" size="icon">
+                <span className="flex size-9 items-center justify-center rounded-full bg-km-green text-sm font-bold text-white">
                   {initials(currentUser.name)}
                 </span>
+                <span className="sr-only">, gebruikersmenu van {currentUser.name}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">

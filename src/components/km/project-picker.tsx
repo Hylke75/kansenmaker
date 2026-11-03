@@ -14,7 +14,7 @@ export function ProjectPicker() {
   const visible = myProjects.filter((p) => !p.archived || p.id === project?.id);
   if (visible.length === 0) return null;
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex w-full min-w-0 items-center gap-2 md:w-auto">
       <Label htmlFor={id} className="sr-only sm:not-sr-only sm:text-sm sm:text-km-muted">
         Project
       </Label>
@@ -25,7 +25,7 @@ export function ProjectPicker() {
           router.push("/");
         }}
       >
-        <SelectTrigger id={id} className="w-full max-w-[52vw] min-w-0 font-semibold text-km-green sm:max-w-xs">
+        <SelectTrigger id={id} className="w-full min-w-0 font-semibold text-km-green md:max-w-xs">
           <SelectValue placeholder="Kies een project" />
         </SelectTrigger>
         <SelectContent>

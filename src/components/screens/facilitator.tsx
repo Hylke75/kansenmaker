@@ -192,7 +192,7 @@ function Inner({ id }: { id: string }) {
             ) : (
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {sorted.map((a) => (
-                  <li key={a.id} className={cn("flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-km-line", a.hidden && "bg-km-offwhite opacity-75")}>
+                  <li key={a.id} className={cn("flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-km-line", a.hidden && "bg-km-offwhite ring-km-muted")}>
                     <p className={cn(a.hidden && "line-through")}>{a.text}</p>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-km-muted">
                       <span>
@@ -208,7 +208,7 @@ function Inner({ id }: { id: string }) {
                             <span className="sr-only">stemmen</span>
                           </span>
                         )}
-                        <Button size="sm" variant="ghost" onClick={() => toggleAnswerHidden(a.id)} aria-label={`${a.hidden ? "Toon" : "Verberg"} antwoord: ${a.text}`}>
+                        <Button size="sm" variant="ghost" onClick={() => toggleAnswerHidden(a.id)} aria-label={`${a.hidden ? "Tonen" : "Verbergen"}: ${a.text}`}>
                           {a.hidden ? <Eye aria-hidden /> : <EyeOff aria-hidden />}
                           {a.hidden ? "Tonen" : "Verbergen"}
                         </Button>

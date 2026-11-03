@@ -147,7 +147,7 @@ function Inner({ id, initialTab }: { id: string; initialTab?: string }) {
       )}
 
       <Tabs value={tab} onValueChange={changeTab}>
-        <TabsList className="mb-8 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-km-line bg-transparent p-0">
+        <TabsList className="mb-8 h-auto w-full flex-wrap justify-start gap-1 rounded-none border-b border-km-line bg-transparent p-0">
           {CONCEPT_TABS.map((t) => (
             <TabsTrigger
               key={t.value}
@@ -452,14 +452,14 @@ function FeasibilityTab({ concept, canManage }: { concept: Concept; canManage: b
   return (
     <div className="flex flex-col gap-6">
       <h2 className="text-2xl">Haalbaarheid</h2>
-      <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {FEAS.map((f) => (
-          <div key={f.key} className="rounded-2xl border border-km-line bg-white p-5">
+          <li key={f.key} className="rounded-2xl border border-km-line bg-white p-5">
             <div className="flex items-start justify-between gap-2">
-              <dt>
-                <span className="font-heading text-lg font-bold text-km-green">{f.label}</span>
-                <span className="block text-sm text-km-muted">{f.help}</span>
-              </dt>
+              <div>
+                <h3 className="text-lg">{f.label}</h3>
+                <p className="text-sm text-km-muted">{f.help}</p>
+              </div>
               {canManage && editing !== f.key && (
                 <Button
                   variant="ghost"
@@ -474,7 +474,7 @@ function FeasibilityTab({ concept, canManage }: { concept: Concept; canManage: b
                 </Button>
               )}
             </div>
-            <dd className="mt-3">
+            <div className="mt-3">
               {editing === f.key ? (
                 <form
                   className="flex flex-col gap-3"
@@ -500,10 +500,10 @@ function FeasibilityTab({ concept, canManage }: { concept: Concept; canManage: b
               ) : (
                 <Empty>Nog niet ingevuld.</Empty>
               )}
-            </dd>
-          </div>
+            </div>
+          </li>
         ))}
-      </dl>
+      </ul>
     </div>
   );
 }

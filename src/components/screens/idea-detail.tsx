@@ -276,7 +276,7 @@ function Contributions({
       ) : (
         <ol className="flex flex-col gap-4">
           {contributions.map((c) => (
-            <li key={c.id} className={cn("rounded-2xl border bg-white p-5", c.kind === "aanvulling" ? "border-km-green/40" : "border-km-line", c.hidden && "opacity-70")}>
+            <li key={c.id} className={cn("rounded-2xl border bg-white p-5", c.kind === "aanvulling" ? "border-km-green/40" : "border-km-line", c.hidden && "border-dashed bg-km-offwhite")}>
               <div className="flex flex-wrap items-center gap-3">
                 <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-km-softgreen text-sm font-bold text-km-green">
                   {initials(userName(c.authorId))}

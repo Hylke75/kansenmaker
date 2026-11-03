@@ -74,7 +74,7 @@ function Inner({ initialTab }: { initialTab?: string }) {
           router.replace(`/beheer?tab=${v}`, { scroll: false });
         }}
       >
-        <TabsList className="mb-8 h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-km-line bg-transparent p-0">
+        <TabsList className="mb-8 h-auto w-full flex-wrap justify-start gap-1 rounded-none border-b border-km-line bg-transparent p-0">
           {tabs.map((t) => (
             <TabsTrigger
               key={t.value}
