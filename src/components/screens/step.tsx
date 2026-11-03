@@ -8,6 +8,7 @@ import { MICROCOPY, STEP6_NOTE, STEPS, type StepText } from "@/lib/steps";
 import { authorName } from "@/lib/authors";
 import type { Idea } from "@/lib/types";
 import { RequireProject } from "@/components/km/guards";
+import { StepNav, useStepProgress } from "@/components/km/step-progress";
 import { PrimaryButton } from "@/components/km/primary-button";
 import { EmptyState } from "@/components/km/empty-state";
 import { FormField } from "@/components/km/form-field";
@@ -21,66 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-/* ------------------------------------------------------------------ */
-/* Voortgang                                                           */
-/* ------------------------------------------------------------------ */
-
-const TARGETS = [3, 1, 1, 1, 1, 1];
-
-/** Voortgang van de ingelogde gebruiker per stap (eigen bijdragen tellen). */
-export function useStepProgress() {
-  const { currentUser } = useStore();
-  const { strengths, audiences, needs, ideas, insights, picks } = useProjectData();
-  const me = currentUser.id;
-  const counts = [
-    strengths.filter((x) => x.createdBy === me).length,
-    audiences.filter((x) => x.createdBy === me).length,
-    needs.filter((x) => x.createdBy === me).length,
-    ideas.filter((x) => x.authorId === me && !x.archived).length,
-    insights.filter((x) => x.createdBy === me).length,
-    picks.filter((x) => x.createdBy === me).length,
-  ];
-  return counts.map((count, i) => ({ step: i + 1, count, target: TARGETS[i], done: count >= TARGETS[i] }));
-}
-
-/** Stappenbalk met de zes stappen. */
-export function StepNav({ current, className = "mb-8" }: { current?: number; className?: string }) {
-  const progress = useStepProgress();
-  return (
-    <nav aria-label="De zes stappen" className={className}>
-      <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-        {STEPS.map((s, i) => {
-          const done = progress[i].done;
-          const active = current === s.number;
-          return (
-            <li key={s.number}>
-              <Link
-                href={`/stappen/${s.number}`}
-                aria-current={active ? "step" : undefined}
-                className={cn(
-                  "flex h-full min-h-11 flex-col gap-1 rounded-xl border p-2 text-sm transition-colors",
-                  active ? "border-km-green bg-km-green text-white" : "border-km-line bg-white text-km-text hover:border-km-green",
-                )}
-              >
-                <span className="flex items-center gap-1 font-bold">
-                  {s.number}
-                  {done && (
-                    <>
-                      <Check className={cn("size-4", active ? "text-white" : "text-km-green")} aria-hidden />
-                      <span className="sr-only">(gedaan)</span>
-                    </>
-                  )}
-                </span>
-                <span className="leading-tight">{s.short}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Scherm                                                              */
@@ -102,9 +43,14 @@ function StepInner({ step }: { step: number }) {
     <div className="mx-auto max-w-3xl">
       <StepNav current={step} />
       <header className="mb-8">
-        <p className="mb-2 text-sm font-semibold tracking-wide text-km-muted uppercase">Stap {step} van 6</p>
+        <p className="mb-2 text-sm font-semibold tracking-wide text-km-muted uppercase">
+          Stap {step} van 6 · {text.short}
+        </p>
         <h1 className="text-3xl md:text-4xl lg:text-[2.75rem]">{text.title}</h1>
         <p className="mt-3 text-xl text-km-green">{text.question}</p>
+        <p className="mt-4 rounded-xl bg-km-softgreen px-4 py-3">
+          <span className="font-semibold text-km-green">Doel:</span> {text.goal}
+        </p>
       </header>
 
       <StepIntro text={text} />

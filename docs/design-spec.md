@@ -639,7 +639,11 @@ Teksten (aangeleverd door Haags Verhaal) staan centraal in `src/lib/steps.ts`.
 - **Rechten:** iedere deelnemer mag nu doelgroepen en behoeften toevoegen (voorheen alleen redacteur+), en eigen items
   wijzigen/verwijderen; redacteur, begeleider en beheerder mogen alles modereren. `created_by` wordt door een trigger
   gezet en kan niet worden gewijzigd. Keuzes (stap 6) zijn persoonlijk; iedereen ziet wel hoe vaak een idee is gekozen.
-- **Overzicht:** blok “Denk mee in zes stappen” met eigen voortgang en “Verder met stap n”.
+- **Logica van de route:** de route begint bij stap 1. De hoofdactie is daarom overal de eerstvolgende stap
+  (“Begin bij stap 1: Onze kracht” / “Verder met stap n”): in het overzicht, onderaan de zijbalk en als zwevende knop
+  op mobiel. “Deel een idee” staat op de ideeënpagina en in stap 4.
+- **Overzicht:** onder de kop de hoofdactie, daarna “De zes stappen van De Kansenmaker” als kaarten (naam, kernvraag,
+  doel, voortgang; de volgende stap is gemarkeerd). Omschrijving en doel per stap: `STEPS[n].summary/goal`.
 - **Ideepagina:** sectie “Kansen, bedreigingen en vragen”; bij status *Te onderzoeken* de melding “Dit idee is
   geselecteerd om verder te onderzoeken…”; bij “Draag bij” de tekst over aanvullen.
 - **Nieuw idee / inzendlink:** blok “Twijfel je of je idee goed genoeg is?”.

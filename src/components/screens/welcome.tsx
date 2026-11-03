@@ -71,20 +71,26 @@ export function HowItWorksScreen() {
         <P key={t}>{t}</P>
       ))}
 
-      <ol className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="De zes stappen">
+      <h2 className="mt-12 text-2xl md:text-3xl">De 6 stappen van De Kansenmaker</h2>
+      <ol className="mt-6 flex flex-col gap-4" aria-label="De zes stappen">
         {STEPS.map((s) => (
-          <li key={s.number} className="flex gap-4 rounded-2xl border border-km-line bg-white p-5">
+          <li key={s.number} className="flex gap-4 rounded-2xl border border-km-line bg-white p-5 md:p-6">
             <span
               className="flex size-10 shrink-0 items-center justify-center rounded-full bg-km-green font-heading text-lg font-bold text-white"
               aria-hidden
             >
               {s.number}
             </span>
-            <span>
-              <span className="sr-only">Stap {s.number}: </span>
-              <span className="block font-heading text-lg font-bold text-km-green">{s.title}</span>
-              <span className="mt-1 block text-km-text">{s.question}</span>
-            </span>
+            <div>
+              <h3 className="text-xl">
+                <span className="sr-only">Stap {s.number}. </span>
+                {s.short} – {s.headline}
+              </h3>
+              <p className="mt-2">{s.summary}</p>
+              <p className="mt-2">
+                <span className="font-semibold text-km-green">Doel:</span> {s.goal}
+              </p>
+            </div>
           </li>
         ))}
       </ol>

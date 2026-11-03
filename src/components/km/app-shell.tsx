@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { useNextStep } from "./step-progress";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { useStore } from "@/lib/store";
@@ -13,7 +14,7 @@ import * as React from "react";
 
 /**
  * AppShell — skiplink, zijbalk, header, hoofdinhoud (max 1200px) en de
- * altijd bereikbare primaire actie ‘Deel een idee’ op mobiel.
+ * altijd bereikbare primaire actie ‘Verder met stap n’ op mobiel.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { state } = useStore();
@@ -43,18 +44,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** ‘Deel een idee’ blijft op mobiel altijd bereikbaar (behalve in het formulier zelf en tijdens begeleiden). */
+/** De volgende stap blijft op mobiel altijd bereikbaar (niet op het overzicht en in de stappen zelf, die tonen hem al; niet in formulieren of tijdens begeleiden). */
 function MobileShareButton() {
   const pathname = usePathname();
-  if (pathname.startsWith("/ideeen/nieuw") || pathname.endsWith("/begeleiden")) return null;
+  const next = useNextStep();
+  if (pathname === "/" || pathname.startsWith("/stappen") || pathname.startsWith("/ideeen/nieuw") || pathname.endsWith("/begeleiden")) return null;
   return (
         <Link
-          href="/ideeen/nieuw"
+          href={next.href}
           data-print-hide
           className="fixed right-4 bottom-4 z-30 inline-flex min-h-14 items-center gap-2 rounded-full bg-km-yellow px-5 font-bold text-km-green shadow-lg hover:bg-km-yellow-hover md:hidden"
         >
-          <Plus className="size-5" aria-hidden />
-          Deel een idee
+          <ArrowRight className="size-5" aria-hidden />
+          {next.label}
         </Link>
   );
 }

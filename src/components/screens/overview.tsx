@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarClock, CheckSquare, Layers, Lightbulb, Plus, Presentation, Users, Inbox } from "lucide-react";
+import { ArrowRight, Check, CalendarClock, CheckSquare, Layers, Lightbulb, Presentation, Users, Inbox } from "lucide-react";
 import { useProjectData, useStore } from "@/lib/store";
 import { PrimaryButton } from "@/components/km/primary-button";
 import { IdeaCard } from "@/components/km/idea-card";
@@ -16,7 +16,8 @@ import { useToday } from "@/hooks/use-today";
 import { useRouter } from "next/navigation";
 import { LoadingState } from "@/components/km/guards";
 import { ProfileForm } from "@/components/km/profile-dialog";
-import { StepNav, useStepProgress } from "@/components/screens/step";
+import { useNextStep, useStepProgress } from "@/components/km/step-progress";
+import { STEPS } from "@/lib/steps";
 
 export function OverviewScreen() {
   const { project, projectReady } = useStore();
@@ -40,40 +41,83 @@ function NamePrompt() {
   );
 }
 
-/** De zes stappen met eigen voortgang en 'ga verder waar je gebleven bent'. */
+/** De zes stappen als kaarten: naam, kernvraag, doel en eigen voortgang. */
 function StepsOverview() {
   const progress = useStepProgress();
-  const doneCount = progress.filter((p) => p.done).length;
-  const next = progress.find((p) => !p.done);
+  const { step: next } = useNextStep();
   return (
-    <section aria-labelledby="stappen" className="rounded-2xl border-2 border-km-green bg-white p-6 md:p-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <section aria-labelledby="stappen">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 id="stappen" className="text-2xl md:text-3xl">
-            Denk mee in zes stappen
+            De zes stappen van De Kansenmaker
           </h2>
-          <p className="mt-1 text-lg">
-            {doneCount === 0
-              ? "Van onze sterke punten naar ideeën die een volgende stap verdienen."
-              : doneCount === 6
-                ? "Je hebt alle stappen doorlopen. Je kunt altijd terugkomen om meer toe te voegen."
-                : `Je hebt ${doneCount} van de 6 stappen gedaan. Ga verder waar je gebleven bent.`}
-          </p>
+          <p className="mt-1 text-lg">Van wat ons bijzonder maakt naar ideeën die een volgende stap verdienen.</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button asChild variant={doneCount === 0 ? "default" : "outline"}>
-            <Link href={next ? `/stappen/${next.step}` : "/stappen/1"}>
-              {doneCount === 0 ? "Begin bij stap 1" : next ? `Verder met stap ${next.step}` : "Bekijk de stappen"}
-              <ArrowRight aria-hidden />
-            </Link>
-          </Button>
-          <Button asChild variant="ghost">
-            <Link href="/hoe-werkt-het">Hoe werkt het?</Link>
-          </Button>
-        </div>
+        <Link href="/hoe-werkt-het" className="inline-flex min-h-11 items-center gap-1 font-semibold text-km-green underline-offset-4 hover:underline">
+          Hoe werkt het? <ArrowRight className="size-4" aria-hidden />
+        </Link>
       </div>
-      <StepNav className="mt-6" />
+      <ol className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {STEPS.map((s, i) => {
+          const { done, count } = progress[i];
+          const isNext = next?.number === s.number;
+          return (
+            <li key={s.number}>
+              <Link
+                href={`/stappen/${s.number}`}
+                className={cn(
+                  "group flex h-full flex-col rounded-2xl p-6 transition-shadow hover:shadow-md",
+                  isNext ? "border-2 border-km-green bg-white" : "bg-km-softgreen",
+                )}
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span
+                    className={cn(
+                      "flex size-10 items-center justify-center rounded-full font-heading text-lg font-bold",
+                      done ? "bg-km-green text-white" : "bg-white text-km-green ring-2 ring-km-green",
+                    )}
+                    aria-hidden
+                  >
+                    {done ? <Check className="size-5" /> : s.number}
+                  </span>
+                  <span className="text-sm font-semibold text-km-muted">
+                    {done ? "Gedaan" : isNext ? "Volgende stap" : count > 0 ? "Bezig" : ""}
+                  </span>
+                </span>
+                <span className="mt-4 text-sm font-semibold text-km-muted">Stap {s.number}</span>
+                <span className="font-heading text-xl font-bold text-km-green">{s.short}</span>
+                <span className="mt-1 font-semibold">{s.headline}</span>
+                <span className="mt-3 text-km-text">
+                  <span className="font-semibold">Doel:</span> {s.goal}
+                </span>
+                <span className="sr-only">{done ? " (gedaan)" : isNext ? " (volgende stap)" : ""}</span>
+                <ArrowRight className="mt-auto ml-auto size-5 pt-0 text-km-green transition-transform group-hover:translate-x-1" aria-hidden />
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
     </section>
+  );
+}
+
+/** Hoofdactie: de eerstvolgende stap van de route. */
+function NextStepIntro() {
+  const { doneCount, step, href, label } = useNextStep();
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-lg">
+        {doneCount === 0
+          ? "We beginnen bij wat het Haags Verhaal bijzonder maakt. Daarna ontdekken we samen doelgroepen, behoeften en nieuwe ideeën."
+          : doneCount === 6
+            ? "Je hebt alle zes stappen doorlopen. Je kunt altijd terugkomen om meer toe te voegen of op anderen te reageren."
+            : `Je hebt ${doneCount} van de 6 stappen gedaan. Ga verder waar je gebleven bent.`}
+      </p>
+      <PrimaryButton href={href} size="lg" className="self-start" icon={<ArrowRight aria-hidden />}>
+        {step ? `${label}: ${step.short}` : label}
+      </PrimaryButton>
+    </div>
   );
 }
 
@@ -110,11 +154,7 @@ function ProjectOverview() {
             Je werkt in <strong className="text-km-green">{project!.name}</strong>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <PrimaryButton href="/ideeen/nieuw" size="lg" icon={<Plus aria-hidden />}>
-            Deel een idee
-          </PrimaryButton>
-        </div>
+        <NextStepIntro />
       </section>
 
       <StepsOverview />
@@ -152,8 +192,12 @@ function ProjectOverview() {
             as="h3"
             icon={Lightbulb}
             title="Nog geen ideeën in dit project"
-            description="Wees de eerste die een idee deelt. Het hoeft nog niet af te zijn."
-            action={<PrimaryButton href="/ideeen/nieuw">Deel een idee</PrimaryButton>}
+            description="Ideeën bedenken we in stap 4, als we weten waar we sterk in zijn en wat doelgroepen zoeken."
+            action={
+              <Button asChild variant="outline">
+                <Link href="/stappen/4">Naar stap 4: Nieuwe ideeën</Link>
+              </Button>
+            }
           />
         ) : (
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

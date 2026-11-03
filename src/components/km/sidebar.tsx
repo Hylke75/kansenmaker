@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
+import { ArrowRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useNextStep } from "./step-progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { NAV_ITEMS, isActive } from "./nav-items";
@@ -22,6 +23,7 @@ export function Sidebar() {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const open = mode === "open" || (mode === "auto" && isDesktop);
   const toggle = () => setMode(open ? "closed" : "open");
+  const next = useNextStep();
 
   const width = mode === "open" ? "w-60" : mode === "closed" ? "w-[72px]" : "w-[72px] lg:w-60";
   const showLabel = mode === "open" ? "" : mode === "closed" ? "sr-only" : "sr-only lg:not-sr-only";
@@ -50,9 +52,9 @@ export function Sidebar() {
 
       <div className="flex flex-col gap-2 border-t border-km-line p-3">
         <Button asChild className="w-full px-0">
-          <Link href="/ideeen/nieuw">
-            <Plus aria-hidden />
-            <span className={showLabel}>Deel een idee</span>
+          <Link href={next.href}>
+            <ArrowRight aria-hidden />
+            <span className={showLabel}>{next.label}</span>
           </Link>
         </Button>
         <Button

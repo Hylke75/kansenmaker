@@ -40,8 +40,14 @@ export const HOW_IT_WORKS = {
 
 export interface StepText {
   number: number;
-  /** Korte naam voor de stappenbalk */
+  /** Naam van de stap (stappenbalk, overzicht) */
   short: string;
+  /** Kernvraag in het overzicht van de zes stappen */
+  headline: string;
+  /** Korte omschrijving in het overzicht van de zes stappen */
+  summary: string;
+  /** Doel van de stap */
+  goal: string;
   title: string;
   question: string;
   intro: string[];
@@ -54,10 +60,15 @@ export interface StepText {
   button: string;
 }
 
+/** De zes stappen. Naam, kernvraag, omschrijving en doel: “De 6 stappen van De Kansenmaker – Haags Verhaal”. */
 export const STEPS: StepText[] = [
   {
     number: 1,
     short: "Onze kracht",
+    headline: "Wat maakt het Haags Verhaal bijzonder?",
+    summary:
+      "We onderzoeken waar het Haags Verhaal goed in is. Denk aan onze kennis van de stad, ons netwerk, het verbinden van verschillende gemeenschappen en het vertellen van verhalen die anders niet gehoord worden.",
+    goal: "Ontdekken welke kwaliteiten we kunnen inzetten voor nieuwe activiteiten en samenwerkingen.",
     title: "De kracht van het Haags Verhaal",
     question: "Wat kunnen wij wat anderen niet zomaar kunnen?",
     intro: [
@@ -80,6 +91,10 @@ export const STEPS: StepText[] = [
   {
     number: 2,
     short: "Doelgroepen",
+    headline: "Voor wie kunnen we iets betekenen?",
+    summary:
+      "We kijken verder dan de mensen die we nu al bereiken. Welke bedrijven, scholen, bewonersgroepen, maatschappelijke organisaties of andere partijen zouden belangstelling kunnen hebben voor wat wij doen?",
+    goal: "Nieuwe doelgroepen ontdekken die we kunnen bereiken of waarvoor we activiteiten kunnen ontwikkelen.",
     title: "Ontdek nieuwe doelgroepen",
     question: "Wie zouden we met het Haags Verhaal nog meer kunnen bereiken?",
     intro: [
@@ -102,6 +117,10 @@ export const STEPS: StepText[] = [
   {
     number: 3,
     short: "Behoeften",
+    headline: "Wat zoeken deze doelgroepen?",
+    summary:
+      "We onderzoeken welke wensen, uitdagingen of behoeften deze doelgroepen hebben. Waarbij kunnen we helpen? Wat willen ze bereiken? En wat missen ze misschien?",
+    goal: "Begrijpen waar daadwerkelijk behoefte aan kan zijn, voordat we activiteiten bedenken.",
     title: "Ontdek de behoefte",
     question: "Wat zoeken, missen of willen deze mensen en organisaties?",
     intro: [
@@ -124,7 +143,11 @@ export const STEPS: StepText[] = [
   },
   {
     number: 4,
-    short: "Ideeën",
+    short: "Nieuwe ideeën",
+    headline: "Wat kunnen we aanbieden?",
+    summary:
+      "We combineren onze sterke punten met de behoeften van doelgroepen. Zo bedenken we nieuwe activiteiten, programma's, diensten en samenwerkingen die passen bij het Haags Verhaal.",
+    goal: "Zoveel mogelijk interessante ideeën verzamelen, zonder ze direct te beoordelen.",
     title: "Van behoefte naar idee",
     question: "Wat zou het Haags Verhaal kunnen aanbieden?",
     intro: [
@@ -151,7 +174,11 @@ export const STEPS: StepText[] = [
   },
   {
     number: 5,
-    short: "Kansen",
+    short: "Kansen en bedreigingen",
+    headline: "Wat maakt een idee kansrijk?",
+    summary:
+      "We bekijken welke ontwikkelingen, contacten en samenwerkingen een idee kunnen versterken. Tegelijk onderzoeken we welke obstakels er zijn, zoals beperkte capaciteit, concurrentie of afhankelijkheid van partners.",
+    goal: "Ontdekken wat nodig is om een idee succesvol te ontwikkelen.",
     title: "Onderzoek de mogelijkheden",
     question: "Wat maakt een idee kansrijk en wat kan het lastig maken?",
     intro: [
@@ -176,7 +203,11 @@ export const STEPS: StepText[] = [
   },
   {
     number: 6,
-    short: "Kiezen",
+    short: "Selecteren en onderzoeken",
+    headline: "Welke ideeën verdienen een volgende stap?",
+    summary:
+      "We beoordelen ideeën op vier punten: de behoefte van de doelgroep, de unieke bijdrage van het Haags Verhaal, de aansluiting op onze missie en de uitvoerbaarheid.",
+    goal: "De meest veelbelovende ideeën kiezen en bepalen hoe we deze in de praktijk gaan toetsen.",
     title: "Van idee naar werkelijkheid",
     question: "Welke ideeën verdienen een volgende stap?",
     intro: [
