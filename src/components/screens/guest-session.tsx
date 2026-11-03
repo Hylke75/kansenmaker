@@ -6,7 +6,7 @@ import { CircleAlert, CircleCheck, Clock, Send, ThumbsUp } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
 import { SESSION_ROUNDS } from "@/lib/constants";
 import { Logo } from "@/components/km/logo";
-import { SessionRound, RoundProgress } from "@/components/km/session-round";
+import { SessionRound, RoundArrows, RoundProgressBar, useViewRound } from "@/components/km/session-round";
 import { EmptyState } from "@/components/km/empty-state";
 import { LoadingState } from "@/components/km/guards";
 import { ErrorSummary, FormField } from "@/components/km/form-field";
@@ -41,7 +41,8 @@ const message = (err: { message?: string } | null) => err?.message || "Er ging i
 
 /**
  * Meedoen aan een werksessie met alleen een link, zonder account.
- * Een gast ziet uitsluitend de actieve opdracht, eigen antwoorden en de stemopties.
+ * Een gast ziet de opdrachten, eigen antwoorden en de stemopties, en bladert zelf door de rondes
+ * (springt mee als de begeleider een andere ronde kiest).
  */
 export function GuestSessionScreen({ token }: { token: string }) {
   const [key, setKey] = React.useState<string | null>(null);
@@ -178,8 +179,16 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
   const [error, setError] = React.useState<string>();
   const [voteError, setVoteError] = React.useState<string>();
   const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState<number | null>(null);
   const db = getSupabase();
-  const round = SESSION_ROUNDS[state.session.active_round - 1];
+  const [view, setView] = useViewRound(state.session.active_round);
+  const round = SESSION_ROUNDS[view - 1];
+  const select = (n: number) => {
+    setView(n);
+    setText("");
+    setError(undefined);
+    setSent(null);
+  };
 
   if (state.session.state === "gepland") {
     return (
@@ -209,9 +218,17 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
     <>
       <SessionHeader state={state} />
       <div className="flex flex-col gap-8">
+        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={state.session.active_round} onSelect={select} />
         <div aria-live="polite">
-          <RoundProgress current={round.number} total={SESSION_ROUNDS.length} />
-          <SessionRound round={round} total={SESSION_ROUNDS.length} className="mt-6" />
+          <SessionRound round={round} total={SESSION_ROUNDS.length} />
+          {view !== state.session.active_round && (
+            <p className="mt-3 text-sm text-km-muted">
+              De begeleider is bij ronde {state.session.active_round}.{" "}
+              <button type="button" className="font-semibold text-km-green underline underline-offset-4" onClick={() => select(state.session.active_round)}>
+                Ga naar ronde {state.session.active_round}
+              </button>
+            </p>
+          )}
         </div>
 
         {round.voting ? (
@@ -256,21 +273,40 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
             className="flex flex-col gap-4 rounded-2xl bg-km-softgreen p-5"
             onSubmit={async (e) => {
               e.preventDefault();
+              if (busy) return;
               if (!text.trim()) return setError("Schrijf eerst je antwoord.");
               if (text.length > 500) return setError("Houd het kort: maximaal 500 tekens.");
               setError(undefined);
               setBusy(true);
-              const { error: err } = await db.rpc("guest_submit_answer", { p_token: token, p_key: guestKey, p_text: text.trim() });
+              const { error: err } = await db.rpc("guest_submit_answer", { p_token: token, p_key: guestKey, p_text: text.trim(), p_round: view });
               setBusy(false);
               if (err) return setError(message(err));
               setText("");
+              setSent(view);
               notify.success("Verstuurd naar de begeleider");
               await refresh();
             }}
           >
             <FormField label={round.inputLabel} error={error}>
-              {(p) => <Textarea {...p} value={text} onChange={(e) => setText(e.target.value)} rows={4} className="bg-white text-lg" />}
+              {(p) => (
+                <Textarea
+                  {...p}
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    if (error) setError(undefined);
+                  }}
+                  rows={4}
+                  className="bg-white text-lg"
+                />
+              )}
             </FormField>
+            {sent === view && (
+              <p role="status" className="flex items-center gap-2 font-semibold text-km-green">
+                <CircleCheck className="size-5" aria-hidden />
+                Verstuurd! Voeg nog iets toe of ga naar de volgende ronde.
+              </p>
+            )}
             <Button type="submit" size="lg" className="self-stretch sm:self-start" disabled={busy}>
               <Send aria-hidden />
               {busy ? "Bezig…" : "Verstuur"}
@@ -291,6 +327,8 @@ function GuestRoom({ token, guestKey, state, refresh }: { token: string; guestKe
             </ul>
           </section>
         )}
+
+        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={select} className="border-t border-km-line pt-6" />
       </div>
     </>
   );

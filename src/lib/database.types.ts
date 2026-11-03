@@ -182,7 +182,7 @@ export type Database = {
       merge_audiences: { Args: { p_source: string; p_target: string }; Returns: undefined };
       guest_join_session: { Args: { p_token: string; p_name: string }; Returns: { guest_id: string; guest_key: string }[] };
       guest_session_state: { Args: { p_token: string; p_key: string | null }; Returns: Json };
-      guest_submit_answer: { Args: { p_token: string; p_key: string; p_text: string }; Returns: string };
+      guest_submit_answer: { Args: { p_token: string; p_key: string; p_text: string; p_round: number }; Returns: string };
       guest_toggle_vote: { Args: { p_token: string; p_key: string; p_answer: string }; Returns: boolean };
       submission_preview: { Args: { p_token: string }; Returns: { project_name: string | null; valid: boolean; reason: string | null }[] };
       guest_submit_idea: { Args: { p_token: string; p_name: string; p_title: string; p_description: string; p_problem?: string | null }; Returns: boolean };

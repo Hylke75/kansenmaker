@@ -661,6 +661,18 @@ Teksten (aangeleverd door Haags Verhaal) staan centraal in `src/lib/steps.ts`.
   (ook bij een nieuwe sessie); het formulier toont dan een hint. De database-controle op datums in het verleden is
   verwijderd (migratie `20261107090000_session_past_dates`).
 
+## 20. Rondes in een werksessie: zelf bladeren
+
+- Deelnemers (gast via link en ingelogd) zien een **voortgangsbalk** (‘Ronde x van 6’, percentage, aanklikbare rondes)
+  en **pijltjes** ‘Vorige ronde’ / ‘Volgende ronde’. Ze kunnen in elke invoerronde (1–5) antwoorden en stemmen in
+  ronde 6, zolang de sessie actief is.
+- De begeleider houdt de **gezamenlijke stand** bij (‘Nu’-label). Kiest de begeleider een andere ronde, dan springt
+  de pagina van deelnemers mee; wie elders bladert ziet ‘De begeleider is bij ronde n’.
+- Database: `guest_submit_answer(p_token, p_key, p_text, p_round)`; controles op ‘alleen de actieve ronde’ en
+  ‘stemmen alleen in ronde 6’ zijn vervangen door ‘sessie actief’ (migratie `20261107100000_self_paced_rounds`).
+- Een sessie start pas met **Start de sessie** (sessiepagina of begeleidersscherm); een verstreken startdatum zet
+  de sessie niet vanzelf aan.
+
 ## Bijlage: screenshots
 
 Gemaakt tijdens de controle in stap 1 (met de toenmalige voorbeeldgegevens). Alle screenshots kun je zelf genereren met

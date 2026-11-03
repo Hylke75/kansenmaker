@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CircleCheck, Clock, Lock, LogOut, Send, ThumbsUp } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Logo } from "@/components/km/logo";
-import { SessionRound, RoundProgress } from "@/components/km/session-round";
+import { SessionRound, RoundArrows, RoundProgressBar, useViewRound } from "@/components/km/session-round";
 import { EmptyState } from "@/components/km/empty-state";
 import { FormField } from "@/components/km/form-field";
 import { LoadingState } from "@/components/km/guards";
@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 const MAX_VOTES = 3;
 
 /**
- * Sessieruimte voor deelnemers: alleen de actieve opdracht, één invoerveld.
- * Volgt de begeleider live (Supabase Realtime): rondewissels verschijnen vanzelf.
+ * Sessieruimte voor deelnemers: opdracht per ronde, één invoerveld. Deelnemers bladeren zelf
+ * door de rondes; kiest de begeleider een andere ronde, dan springt de pagina live mee (Realtime).
  */
 export function ParticipantScreen({ id }: { id: string }) {
   const { state, openSessionProject, projectReady, joinSession, currentUser } = useStore();
@@ -97,10 +97,19 @@ function Room({ sessionId }: { sessionId: string }) {
   const { state, currentUser, project, addSessionAnswer, toggleVote } = useStore();
   const session = state.sessions.find((s) => s.id === sessionId)!;
   const allowVoting = state.projects.find((p) => p.id === session.projectId)?.settings.allowVoting ?? true;
-  const round = SESSION_ROUNDS[session.activeRound - 1];
+  const [view, setView] = useViewRound(session.activeRound);
+  const round = SESSION_ROUNDS[view - 1];
   const [text, setText] = React.useState("");
   const [error, setError] = React.useState<string>();
   const [voteError, setVoteError] = React.useState<string>();
+  const [sent, setSent] = React.useState<number | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const select = (n: number) => {
+    setView(n);
+    setText("");
+    setError(undefined);
+    setSent(null);
+  };
 
   const header = (
     <div className="mb-8">
@@ -151,10 +160,17 @@ function Room({ sessionId }: { sessionId: string }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     if (!text.trim()) return setError("Schrijf eerst je antwoord.");
     if (text.length > 500) return setError("Houd het kort: maximaal 500 tekens.");
     setError(undefined);
-    if (await notify.after(addSessionAnswer(session.id, round.number, text), "Verstuurd naar de begeleider")) setText("");
+    setBusy(true);
+    const ok = await notify.after(addSessionAnswer(session.id, round.number, text), "Verstuurd naar de begeleider");
+    setBusy(false);
+    if (ok) {
+      setText("");
+      setSent(round.number);
+    }
   };
 
   const vote = (id: string, has: boolean) => {
@@ -170,9 +186,17 @@ function Room({ sessionId }: { sessionId: string }) {
     <>
       {header}
       <div className="flex flex-col gap-8">
+        <RoundProgressBar rounds={SESSION_ROUNDS} view={view} active={session.activeRound} onSelect={select} />
         <div aria-live="polite">
-          <RoundProgress current={round.number} total={SESSION_ROUNDS.length} />
-          <SessionRound round={round} total={SESSION_ROUNDS.length} className="mt-6" />
+          <SessionRound round={round} total={SESSION_ROUNDS.length} />
+          {view !== session.activeRound && (
+            <p className="mt-3 text-sm text-km-muted">
+              De begeleider is bij ronde {session.activeRound}.{" "}
+              <button type="button" className="font-semibold text-km-green underline underline-offset-4" onClick={() => select(session.activeRound)}>
+                Ga naar ronde {session.activeRound}
+              </button>
+            </p>
+          )}
         </div>
 
         {round.voting ? (
@@ -217,11 +241,28 @@ function Room({ sessionId }: { sessionId: string }) {
         ) : (
           <form onSubmit={submit} noValidate className="flex flex-col gap-4 rounded-2xl bg-km-softgreen p-5">
             <FormField label={round.inputLabel} error={error}>
-              {(p) => <Textarea {...p} value={text} onChange={(e) => setText(e.target.value)} rows={4} className="bg-white text-lg" />}
+              {(p) => (
+                <Textarea
+                  {...p}
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    if (error) setError(undefined);
+                  }}
+                  rows={4}
+                  className="bg-white text-lg"
+                />
+              )}
             </FormField>
-            <Button type="submit" size="lg" className="self-stretch sm:self-start">
+            {sent === round.number && (
+              <p role="status" className="flex items-center gap-2 font-semibold text-km-green">
+                <CircleCheck className="size-5" aria-hidden />
+                Verstuurd! Voeg nog iets toe of ga naar de volgende ronde.
+              </p>
+            )}
+            <Button type="submit" size="lg" className="self-stretch sm:self-start" disabled={busy}>
               <Send aria-hidden />
-              Verstuur
+              {busy ? "Bezig…" : "Verstuur"}
             </Button>
           </form>
         )}
@@ -241,6 +282,8 @@ function Room({ sessionId }: { sessionId: string }) {
             </ul>
           </section>
         )}
+
+        <RoundArrows rounds={SESSION_ROUNDS} view={view} onSelect={select} className="border-t border-km-line pt-6" />
       </div>
     </>
   );
